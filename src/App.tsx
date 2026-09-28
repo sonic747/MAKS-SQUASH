@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { MemberSidebar } from './components/MemberSidebar';
 import { Navigation } from './components/Navigation';
@@ -17,15 +17,15 @@ import { AuthGateModal } from './components/AuthGateModal';
 import { EditProfileModal } from './components/EditProfileModal';
 
 import { INITIAL_MEMBERS, INITIAL_POSTS } from './data/initialData';
-
 import { TabType, SquashMember, FeedPost, HonorItem, MemberPhoto } from './types';
 
-const STORAGE_KEY_MEMBERS = 'maks_squash_members_v3';
-const STORAGE_KEY_POSTS = 'maks_squash_posts_v3';
-const STORAGE_KEY_AUTH = 'maks_squash_current_user_v3';
+const STORAGE_KEY_MEMBERS = 'maks_squash_members_v4';
+const STORAGE_KEY_POSTS = 'maks_squash_posts_v4';
+const STORAGE_KEY_AUTH = 'maks_squash_current_user_v4';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('feed');
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Members State
   const [members, setMembers] = useState<SquashMember[]>(() => {
@@ -33,13 +33,9 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY_MEMBERS);
       if (saved) {
         let parsed: SquashMember[] = JSON.parse(saved);
-        // Clean out any dummy/test "카카오 회원" per user request
         parsed = parsed.filter(
-          (m) =>
-            !m.name.includes('카카오') &&
-            !m.username.startsWith('kakao_')
+          (m) => !m.name.includes('카카오') && !m.username.startsWith('kakao_')
         );
-        // Ensure admin user (username === 'admin') is always included
         const adminExists = parsed.some((m) => m.username === 'admin');
         if (!adminExists) {
           const adminUser = INITIAL_MEMBERS.find((m) => m.username === 'admin');
@@ -107,7 +103,95 @@ export default function App() {
     title: '',
   });
 
-  // Sync persistence
+  // Ref to track latest state for syncing without stale closures
+  const membersRef = useRef(members);
+  const postsRef = useRef(posts);
+  useEffect(() => {
+    membersRef.current = members;
+  }, [members]);
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
+
+  // Sync to server API
+  const pushToServer = useCallback(async (currentMembers: SquashMember[], currentPosts: FeedPost[]) => {
+    try {
+      await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          members: currentMembers,
+          posts: currentPosts,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to push data to server', err);
+    }
+  }, []);
+
+  // Fetch latest shared data from server (called on load, tab change, focus, and timer)
+  const fetchFromServer = useCallback(async (showLoading = false) => {
+    if (showLoading) setIsSyncing(true);
+    try {
+      const res = await fetch('/api/sync');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.members && Array.isArray(data.members) && data.members.length > 0) {
+          // If server has members, update local state
+          setMembers(data.members);
+          try {
+            localStorage.setItem(STORAGE_KEY_MEMBERS, JSON.stringify(data.members));
+          } catch (e) {
+            console.error(e);
+          }
+        } else {
+          // First time or server empty: push our initial data to server
+          await pushToServer(membersRef.current, postsRef.current);
+        }
+
+        if (data.posts && Array.isArray(data.posts) && data.posts.length > 0) {
+          setPosts(data.posts);
+          try {
+            localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify(data.posts));
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch from server', err);
+    } finally {
+      if (showLoading) setIsSyncing(false);
+    }
+  }, [pushToServer]);
+
+  // 1. Initial Load & Window Focus Sync (so when mobile or PC switches back to the tab, it syncs immediately)
+  useEffect(() => {
+    fetchFromServer(true);
+
+    const handleFocus = () => {
+      fetchFromServer(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        fetchFromServer(false);
+      }
+    });
+
+    // Background polling every 15 seconds to ensure mobile and browser are in lockstep
+    const interval = setInterval(() => {
+      fetchFromServer(false);
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [fetchFromServer]);
+
+  // Save to LocalStorage whenever members/posts change
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_MEMBERS, JSON.stringify(members));
@@ -136,18 +220,19 @@ export default function App() {
   };
 
   const handleAddMember = (newMember: SquashMember) => {
-    setMembers((prev) => [newMember, ...prev]);
+    const updated = [newMember, ...members];
+    setMembers(updated);
     setSelectedMemberId(newMember.id);
+    pushToServer(updated, posts);
   };
 
   const handleDeleteMember = (memberId: string) => {
-    setMembers((prev) => prev.filter((m) => m.id !== memberId));
-    if (selectedMemberId === memberId) {
-      const remaining = members.filter((m) => m.id !== memberId);
-      if (remaining.length > 0) {
-        setSelectedMemberId(remaining[0].id);
-      }
+    const remaining = members.filter((m) => m.id !== memberId);
+    setMembers(remaining);
+    if (selectedMemberId === memberId && remaining.length > 0) {
+      setSelectedMemberId(remaining[0].id);
     }
+    pushToServer(remaining, posts);
   };
 
   const handleLogin = (member: SquashMember) => {
@@ -161,7 +246,8 @@ export default function App() {
   };
 
   const handleRegisterFromGate = (newMember: SquashMember) => {
-    setMembers((prev) => [newMember, ...prev]);
+    const updated = [newMember, ...members];
+    setMembers(updated);
     setCurrentUser(newMember);
     setSelectedMemberId(newMember.id);
     try {
@@ -169,6 +255,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
+    pushToServer(updated, posts);
   };
 
   const handleLogout = () => {
@@ -180,29 +267,30 @@ export default function App() {
     }
   };
 
-  const handleUpdateMember = (updated: SquashMember) => {
-    setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
-    if (currentUser && currentUser.id === updated.id) {
-      setCurrentUser(updated);
+  const handleUpdateMember = (updatedMember: SquashMember) => {
+    const updatedList = members.map((m) => (m.id === updatedMember.id ? updatedMember : m));
+    setMembers(updatedList);
+    if (currentUser && currentUser.id === updatedMember.id) {
+      setCurrentUser(updatedMember);
       try {
-        localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(updated));
+        localStorage.setItem(STORAGE_KEY_AUTH, JSON.stringify(updatedMember));
       } catch (e) {
         console.error(e);
       }
     }
     // Also update author info across their posts if updated
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.authorId === updated.id
-          ? {
-              ...p,
-              authorName: updated.name,
-              authorAvatar: updated.avatar,
-              authorBadge: updated.role === 'captain' ? 'CAPTAIN' : updated.roleLabel,
-            }
-          : p
-      )
+    const updatedPosts = posts.map((p) =>
+      p.authorId === updatedMember.id
+        ? {
+            ...p,
+            authorName: updatedMember.name,
+            authorAvatar: updatedMember.avatar,
+            authorBadge: updatedMember.role === 'captain' ? 'CAPTAIN' : updatedMember.roleLabel,
+          }
+        : p
     );
+    setPosts(updatedPosts);
+    pushToServer(updatedList, updatedPosts);
   };
 
   const handleAddPost = (
@@ -218,32 +306,38 @@ export default function App() {
       comments: [],
     };
 
-    setPosts((prev) => [newPost, ...prev]);
+    const updated = [newPost, ...posts];
+    setPosts(updated);
+    pushToServer(members, updated);
   };
 
   const handleUpdatePost = (updated: FeedPost) => {
-    setPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    const updatedPosts = posts.map((p) => (p.id === updated.id ? updated : p));
+    setPosts(updatedPosts);
     setEditingPost(null);
+    pushToServer(members, updatedPosts);
   };
 
   const handleDeletePost = (postId: string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    const updatedPosts = posts.filter((p) => p.id !== postId);
+    setPosts(updatedPosts);
+    pushToServer(members, updatedPosts);
   };
 
   const handleToggleNiceShot = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          const isGiven = !post.isNiceShotGiven;
-          return {
-            ...post,
-            isNiceShotGiven: isGiven,
-            niceShots: isGiven ? post.niceShots + 1 : Math.max(0, post.niceShots - 1),
-          };
-        }
-        return post;
-      })
-    );
+    const updatedPosts = posts.map((post) => {
+      if (post.id === postId) {
+        const isGiven = !post.isNiceShotGiven;
+        return {
+          ...post,
+          isNiceShotGiven: isGiven,
+          niceShots: isGiven ? post.niceShots + 1 : Math.max(0, post.niceShots - 1),
+        };
+      }
+      return post;
+    });
+    setPosts(updatedPosts);
+    pushToServer(members, updatedPosts);
   };
 
   const handleToggleBookmark = (postId: string) => {
@@ -270,18 +364,18 @@ export default function App() {
       timeAgo: '방금 전',
     };
 
-    setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            commentsCount: post.commentsCount + 1,
-            comments: [...post.comments, newComment],
-          };
-        }
-        return post;
-      })
-    );
+    const updatedPosts = posts.map((post) => {
+      if (post.id === postId) {
+        return {
+          ...post,
+          commentsCount: post.commentsCount + 1,
+          comments: [...post.comments, newComment],
+        };
+      }
+      return post;
+    });
+    setPosts(updatedPosts);
+    pushToServer(members, updatedPosts);
   };
 
   const handleAddCheer = (targetMemberId: string, authorName: string, text: string) => {
@@ -292,17 +386,17 @@ export default function App() {
       timestamp: '방금 전',
     };
 
-    setMembers((prev) =>
-      prev.map((m) => {
-        if (m.id === targetMemberId) {
-          return {
-            ...m,
-            cheers: [newCheer, ...m.cheers],
-          };
-        }
-        return m;
-      })
-    );
+    const updatedMembers = members.map((m) => {
+      if (m.id === targetMemberId) {
+        return {
+          ...m,
+          cheers: [newCheer, ...m.cheers],
+        };
+      }
+      return m;
+    });
+    setMembers(updatedMembers);
+    pushToServer(updatedMembers, posts);
   };
 
   const handleAddHonor = (memberId: string, honorData: Omit<HonorItem, 'id'>) => {
@@ -311,18 +405,18 @@ export default function App() {
       id: `h-${Date.now()}`,
     };
 
-    setMembers((prev) =>
-      prev.map((m) => {
-        if (m.id === memberId) {
-          return {
-            ...m,
-            trophiesCount: m.trophiesCount + 1,
-            honors: [newHonor, ...m.honors],
-          };
-        }
-        return m;
-      })
-    );
+    const updatedMembers = members.map((m) => {
+      if (m.id === memberId) {
+        return {
+          ...m,
+          trophiesCount: m.trophiesCount + 1,
+          honors: [newHonor, ...m.honors],
+        };
+      }
+      return m;
+    });
+    setMembers(updatedMembers);
+    pushToServer(updatedMembers, posts);
   };
 
   const handleAddPhoto = (memberId: string, photoData: Omit<MemberPhoto, 'id'>) => {
@@ -331,17 +425,17 @@ export default function App() {
       id: `photo-${Date.now()}`,
     };
 
-    setMembers((prev) =>
-      prev.map((m) => {
-        if (m.id === memberId) {
-          return {
-            ...m,
-            photos: [newPhoto, ...m.photos],
-          };
-        }
-        return m;
-      })
-    );
+    const updatedMembers = members.map((m) => {
+      if (m.id === memberId) {
+        return {
+          ...m,
+          photos: [newPhoto, ...m.photos],
+        };
+      }
+      return m;
+    });
+    setMembers(updatedMembers);
+    pushToServer(updatedMembers, posts);
   };
 
   const handleDownloadJson = () => {
@@ -372,9 +466,12 @@ export default function App() {
       const parsed = JSON.parse(jsonString);
       if (parsed.members && Array.isArray(parsed.members)) {
         setMembers(parsed.members);
+        let updatedPosts = posts;
         if (parsed.posts && Array.isArray(parsed.posts)) {
           setPosts(parsed.posts);
+          updatedPosts = parsed.posts;
         }
+        pushToServer(parsed.members, updatedPosts);
         return true;
       }
     } catch (e) {
@@ -391,7 +488,9 @@ export default function App() {
         <Header
           currentTab={currentTab}
           currentUser={currentUser}
+          isSyncing={isSyncing}
           onLogout={handleLogout}
+          onManualSync={() => fetchFromServer(true)}
         />
 
         {/* Main Body */}
@@ -415,15 +514,31 @@ export default function App() {
                 onToggleNiceShot={handleToggleNiceShot}
                 onToggleBookmark={handleToggleBookmark}
                 onOpenComments={(post) => setActiveCommentPost(post)}
-                onViewMemberProfile={(authorId) => {
-                  setSelectedMemberId(authorId);
-                  setCurrentTab('trophies');
-                }}
+                onEditPost={(post) => setEditingPost(post)}
+                onDeletePost={handleDeletePost}
+                onViewMemberProfile={(authorId) => handleSelectMember(authorId)}
                 onOpenImageModal={(imageUrl, title) =>
                   setLightboxData({ isOpen: true, imageUrl, title })
                 }
-                onEditPost={(post) => setEditingPost(post)}
-                onDeletePost={handleDeletePost}
+              />
+            )}
+
+            {currentTab === 'members' && (
+              <MembersView
+                members={members}
+                maxCapacity={maxCapacity}
+                currentUser={currentUser}
+                onSelectMemberForTrophy={(mId) => handleSelectMember(mId)}
+                onSelectMemberForFeed={(mId) => {
+                  handleSelectMember(mId);
+                  setCurrentTab('feed');
+                }}
+                onOpenRegister={() => setCurrentTab('register')}
+                onOpenEditProfile={(m) => {
+                  setSelectedMemberId(m.id);
+                  setIsEditProfileOpen(true);
+                }}
+                onDeleteMember={handleDeleteMember}
               />
             )}
 
@@ -432,10 +547,10 @@ export default function App() {
                 member={selectedMember}
                 allMembers={members}
                 currentUser={currentUser}
-                onSelectMember={handleSelectMember}
+                onSelectMember={(mId) => setSelectedMemberId(mId)}
                 onOpenAddPhotoModal={() => setIsAddHonorPhotoModalOpen(true)}
                 onOpenCheerModal={() => setIsCheerModalOpen(true)}
-                onOpenImageModal={(imageUrl: string, title: string) =>
+                onOpenImageModal={(imageUrl, title) =>
                   setLightboxData({ isOpen: true, imageUrl, title })
                 }
                 onOpenEditProfile={() => setIsEditProfileOpen(true)}
@@ -447,7 +562,10 @@ export default function App() {
                 members={members}
                 maxCapacity={maxCapacity}
                 onAddMember={handleAddMember}
-                onSelectMember={handleSelectMember}
+                onSelectMember={(mId) => {
+                  setSelectedMemberId(mId);
+                  setCurrentTab('trophies');
+                }}
               />
             )}
 
@@ -457,34 +575,21 @@ export default function App() {
                 maxCapacity={maxCapacity}
                 onDownloadJson={handleDownloadJson}
                 onImportJson={handleImportJson}
-              />
-            )}
-
-            {currentTab === 'members' && (
-              <MembersView
-                members={members}
-                maxCapacity={maxCapacity}
-                currentUser={currentUser}
-                onSelectMemberForTrophy={(id) => {
-                  setSelectedMemberId(id);
-                  setCurrentTab('trophies');
-                }}
-                onSelectMemberForFeed={(id) => {
-                  setSelectedMemberId(id);
-                  setCurrentTab('feed');
-                }}
-                onOpenRegister={() => setCurrentTab('register')}
-                onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                onDeleteMember={handleDeleteMember}
+                onSyncServer={() => fetchFromServer(true)}
+                isSyncing={isSyncing}
               />
             )}
           </main>
         </div>
 
-        {/* Bottom Fixed Navigation Bar */}
-        <Navigation currentTab={currentTab} onTabChange={setCurrentTab} currentUser={currentUser} />
+        {/* Bottom Navigation */}
+        <Navigation
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          currentUser={currentUser}
+        />
 
-        {/* Auth Gate Modal: Login/Register Required */}
+        {/* Global Modals */}
         <AuthGateModal
           isOpen={!currentUser}
           members={members}
@@ -492,62 +597,62 @@ export default function App() {
           onRegister={handleRegisterFromGate}
         />
 
-        {/* Modals */}
         <CreatePostModal
           isOpen={isCreatePostOpen}
-          onClose={() => setIsCreatePostOpen(false)}
           members={members}
           currentUser={currentUser}
+          onClose={() => setIsCreatePostOpen(false)}
           onAddPost={handleAddPost}
         />
 
-        {/* Edit Profile Modal */}
-        {currentUser && (
-          <EditProfileModal
-            isOpen={isEditProfileOpen}
-            onClose={() => setIsEditProfileOpen(false)}
-            currentUser={currentUser}
-            onUpdateMember={handleUpdateMember}
-          />
-        )}
-
         <EditPostModal
-          isOpen={!!editingPost}
-          onClose={() => setEditingPost(null)}
+          isOpen={Boolean(editingPost)}
           post={editingPost}
+          onClose={() => setEditingPost(null)}
           onUpdatePost={handleUpdatePost}
           onDeletePost={handleDeletePost}
         />
 
         <CommentsDrawer
-          isOpen={!!activeCommentPost}
-          onClose={() => setActiveCommentPost(null)}
+          isOpen={Boolean(activeCommentPost)}
           post={activeCommentPost}
           currentUser={currentUser || selectedMember}
-          onAddComment={handleAddComment}
+          onClose={() => setActiveCommentPost(null)}
+          onAddComment={(postId, commentText) => {
+            handleAddComment(postId, commentText);
+          }}
         />
 
         <AddCheerModal
           isOpen={isCheerModalOpen}
-          onClose={() => setIsCheerModalOpen(false)}
           targetMember={selectedMember}
           allMembers={members}
-          onAddCheer={handleAddCheer}
+          onClose={() => setIsCheerModalOpen(false)}
+          onAddCheer={(targetMemberId, author, text) => handleAddCheer(targetMemberId, author, text)}
         />
 
         <AddHonorOrPhotoModal
           isOpen={isAddHonorPhotoModalOpen}
-          onClose={() => setIsAddHonorPhotoModalOpen(false)}
           member={selectedMember}
-          onAddHonor={handleAddHonor}
-          onAddPhoto={handleAddPhoto}
+          onClose={() => setIsAddHonorPhotoModalOpen(false)}
+          onAddHonor={(memberId, honorData) => handleAddHonor(memberId, honorData)}
+          onAddPhoto={(memberId, photoData) => handleAddPhoto(memberId, photoData)}
+        />
+
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          currentUser={selectedMember}
+          onClose={() => setIsEditProfileOpen(false)}
+          onUpdateMember={handleUpdateMember}
         />
 
         <LightboxModal
           isOpen={lightboxData.isOpen}
-          onClose={() => setLightboxData((prev) => ({ ...prev, isOpen: false }))}
           imageUrl={lightboxData.imageUrl}
           title={lightboxData.title}
+          onClose={() =>
+            setLightboxData({ isOpen: false, imageUrl: '', title: '' })
+          }
         />
       </div>
     </div>

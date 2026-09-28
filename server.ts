@@ -9,9 +9,16 @@ dotenv.config();
 const app = express();
 const port = 3000;
 
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+interface ClubData {
+  updated_at: string;
+  members: any[];
+  posts: any[];
+}
+
+const DATA_FILE = path.resolve(process.cwd(), 'src/data/club_db.json');
 const MEMBERS_FILE = path.resolve(process.cwd(), 'src/data/members_db.json');
 
 // Helper to safely read JSON file
@@ -47,8 +54,51 @@ app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', serverTime: new Date().toISOString() });
 });
 
-// 2. Members DB endpoints
+// 2. Comprehensive Sync endpoint: Members + Posts combined
+app.get('/api/sync', (req: Request, res: Response) => {
+  const db = readJsonFile<ClubData>(DATA_FILE, {
+    updated_at: new Date().toISOString(),
+    members: [],
+    posts: [],
+  });
+  res.json(db);
+});
+
+app.post('/api/sync', (req: Request, res: Response) => {
+  const { members, posts } = req.body;
+  const currentDb = readJsonFile<ClubData>(DATA_FILE, {
+    updated_at: new Date().toISOString(),
+    members: [],
+    posts: [],
+  });
+  
+  const updatedDb: ClubData = {
+    updated_at: new Date().toISOString(),
+    members: Array.isArray(members) ? members : currentDb.members,
+    posts: Array.isArray(posts) ? posts : currentDb.posts,
+  };
+
+  writeJsonFile(DATA_FILE, updatedDb);
+  
+  if (Array.isArray(members)) {
+    writeJsonFile(MEMBERS_FILE, { updated_at: updatedDb.updated_at, members });
+  }
+
+  res.json({
+    success: true,
+    membersCount: updatedDb.members.length,
+    postsCount: updatedDb.posts.length,
+    updated_at: updatedDb.updated_at,
+  });
+});
+
+// 3. Members DB endpoints (read/write)
 app.get('/api/members', (req: Request, res: Response) => {
+  const clubDb = readJsonFile<Partial<ClubData>>(DATA_FILE, {});
+  if (clubDb.members && Array.isArray(clubDb.members)) {
+    res.json({ members: clubDb.members, updated_at: clubDb.updated_at });
+    return;
+  }
   const data = readJsonFile(MEMBERS_FILE, { members: [] });
   res.json(data);
 });
@@ -64,10 +114,20 @@ app.post('/api/members', (req: Request, res: Response) => {
     members,
   };
   writeJsonFile(MEMBERS_FILE, payload);
+
+  const clubDb = readJsonFile<ClubData>(DATA_FILE, {
+    updated_at: payload.updated_at,
+    members: [],
+    posts: [],
+  });
+  clubDb.members = members;
+  clubDb.updated_at = payload.updated_at;
+  writeJsonFile(DATA_FILE, clubDb);
+
   res.json({ success: true, count: members.length });
 });
 
-// 3. Vite middleware in dev or static files in production
+// 4. Vite middleware in dev or static files in production
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

@@ -1,7 +1,7 @@
 import React from 'react';
 import { MaksLogo } from './MaksLogo';
 import { TabType, SquashMember } from '../types';
-import { LogOut } from 'lucide-react';
+import { LogOut, RefreshCw, CheckCircle } from 'lucide-react';
 
 interface HeaderProps {
   currentTab: TabType;
@@ -9,13 +9,16 @@ interface HeaderProps {
   isSyncing?: boolean;
   currentUser?: SquashMember | null;
   onLogout?: () => void;
+  onManualSync?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   title,
+  isSyncing,
   currentUser,
   onLogout,
+  onManualSync,
 }) => {
   const getTabTitle = () => {
     if (title) return title;
@@ -47,8 +50,26 @@ export const Header: React.FC<HeaderProps> = ({
           </h1>
         </div>
 
-        {/* Right: Current User Info and Logout */}
+        {/* Right: Cloud Sync Status, Current User Info and Logout */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Real-time Cloud Sync button / status */}
+          {onManualSync && (
+            <button
+              onClick={onManualSync}
+              disabled={isSyncing}
+              title="모바일 ↔ PC 실시간 데이터 동기화"
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#181b24] hover:bg-[#202534] border border-white/10 text-xs font-chivo text-gray-300 hover:text-white transition-all cursor-pointer active:scale-95"
+            >
+              <RefreshCw
+                size={12}
+                className={`text-[#f5c200] ${isSyncing ? 'animate-spin' : ''}`}
+              />
+              <span className="hidden sm:inline text-[11px]">
+                {isSyncing ? '동기화 중...' : '실시간 동기화'}
+              </span>
+            </button>
+          )}
+
           {currentUser ? (
             <div className="flex items-center gap-1.5">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a1c24] border border-white/10 text-white text-xs font-chivo">
