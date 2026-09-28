@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "Member": {
+      "title": "SquashMember",
+      "description": "Squash club member details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "role": { "type": "string" },
+        "roleLabel": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "tenure": { "type": "string" },
+        "age": { "type": "number" },
+        "ballRating": { "type": "string" },
+        "ratingLabel": { "type": "string" },
+        "ratingSub": { "type": "string" },
+        "primaryTeam": { "type": "string" },
+        "clubPass": { "type": "string" },
+        "trophiesCount": { "type": "number" },
+        "statusColor": { "type": "string" },
+        "phone": { "type": "string" },
+        "bio": { "type": "string" }
+      },
+      "required": ["id", "username", "name"]
+    },
+    "FeedPost": {
+      "title": "FeedPost",
+      "description": "Club feed post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "caption": { "type": "string" },
+        "timeAgo": { "type": "string" }
+      },
+      "required": ["id", "authorId", "caption"]
+    }
+  },
+  "firestore": {
+    "members": {
+      "entity": "Member",
+      "description": "Collection of club members"
+    },
+    "posts": {
+      "entity": "FeedPost",
+      "description": "Collection of club posts"
+    },
+    "system": {
+      "entity": "Member",
+      "description": "System metadata"
+    }
+  }
+}
