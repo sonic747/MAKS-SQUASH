@@ -478,7 +478,7 @@ export const AuthGateModal: React.FC<AuthGateModalProps> = ({
                     type="password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="비밀번호 (관리자: 1234, 회원: 1234)"
+                    placeholder="비밀번호를 입력하세요"
                     className="w-full px-3 py-2.5 rounded-lg bg-[#0c0e15] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
                     required
                   />

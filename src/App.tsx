@@ -37,7 +37,7 @@ export default function App() {
 
   // Members & Posts State (Real-time Firestore Authority)
   const [members, setMembers] = useState<SquashMember[]>(INITIAL_MEMBERS);
-  const [posts, setPosts] = useState<FeedPost[]>(INITIAL_POSTS);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
 
   // Current Logged-in User
   const [currentUser, setCurrentUser] = useState<SquashMember | null>(() => {
@@ -276,12 +276,13 @@ export default function App() {
   };
 
   const handleDeletePost = async (postId: string) => {
+    // 1. Optimistic instant removal from UI
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
     try {
       setIsSyncing(true);
       await deletePostFromFirestore(postId);
     } catch (err) {
       console.error('Failed to delete post from cloud', err);
-      setPosts((prev) => prev.filter((p) => p.id !== postId));
     } finally {
       setIsSyncing(false);
     }

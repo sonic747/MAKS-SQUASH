@@ -105,11 +105,26 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </button>
       </div>
 
-      {/* Feed Cards */}
-      <div className="space-y-4">
-        {filteredPosts.map((post) => {
-          const isSwinging = swingingPostId === post.id;
-          const isMenuOpen = activeMenuPostId === post.id;
+      {/* Feed Cards or Empty State */}
+      {filteredPosts.length === 0 ? (
+        <div className="rounded-xl bg-[#161822] border border-white/[0.08] p-8 text-center space-y-3 shadow-lg">
+          <div className="w-12 h-12 mx-auto rounded-full bg-[#f5c200]/10 border border-[#f5c200]/30 flex items-center justify-center text-[#f5c200]">
+            <Camera size={24} />
+          </div>
+          <div>
+            <h3 className="font-chivo font-black text-white text-sm sm:text-base">
+              등록된 공지/게시글이 없습니다
+            </h3>
+            <p className="text-xs text-gray-400 mt-1">
+              상단의 [공지 작성 / 사진 업로드] 버튼을 눌러 첫 번째 소식을 공유해 보세요!
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredPosts.map((post) => {
+            const isSwinging = swingingPostId === post.id;
+            const isMenuOpen = activeMenuPostId === post.id;
 
           return (
             <article
@@ -302,6 +317,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           );
         })}
       </div>
+    )}
 
       {/* Delete Confirm Modal */}
       {postToDelete && (
