@@ -69,11 +69,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <span>공지 작성 / 사진 업로드</span>
       </button>
 
-      {/* Filter Category Pills */}
+      {/* Filter Category Pills: 전체 공지, 대회수상, 게임/매치 */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
         <button
           onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold transition-all ${
+          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold transition-all cursor-pointer ${
             activeFilter === 'all'
               ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
               : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
@@ -82,26 +82,26 @@ export const FeedView: React.FC<FeedViewProps> = ({
           #전체 공지
         </button>
         <button
-          onClick={() => setActiveFilter('match')}
-          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold flex items-center gap-1 transition-all ${
-            activeFilter === 'match'
-              ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
-              : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
-          }`}
-        >
-          <span>#오늘의게임</span>
-          <span>🔥</span>
-        </button>
-        <button
           onClick={() => setActiveFilter('awards')}
-          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold flex items-center gap-1 transition-all ${
+          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold flex items-center gap-1 transition-all cursor-pointer ${
             activeFilter === 'awards'
               ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
               : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
           }`}
         >
-          <span>#대회수상</span>
           <span>🏆</span>
+          <span>#대회수상</span>
+        </button>
+        <button
+          onClick={() => setActiveFilter('match')}
+          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold flex items-center gap-1 transition-all cursor-pointer ${
+            activeFilter === 'match'
+              ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
+              : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
+          }`}
+        >
+          <span>🔥</span>
+          <span>#오늘의게임</span>
         </button>
       </div>
 
@@ -166,8 +166,15 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5">
                       <span>{post.timeAgo}</span>
-                      <span>•</span>
-                      <span>{post.location}</span>
+                      {post.location && post.category === 'match' && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-0.5 text-gray-300">
+                            <span>📍</span>
+                            <span>{post.location}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -238,8 +245,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 )}
               </div>
 
-              {/* Match Stats Pill Bar (if present) */}
-              {(post.matchDuration || post.setScore) && (
+              {/* Award or Match Stats Banner (if present) */}
+              {post.category === 'awards' && post.awardsDetail && (
+                <div className="px-3.5 py-2.5 bg-[#f5c200]/10 border-y border-[#f5c200]/25 flex items-center gap-2 text-xs font-chivo">
+                  <span className="p-1 rounded bg-[#f5c200]/20 text-[#f5c200]">
+                    <Trophy size={14} />
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-[#f5c200] font-black uppercase tracking-wider">대회 수상 내역</span>
+                    <span className="text-white font-extrabold text-xs">{post.awardsDetail}</span>
+                  </div>
+                </div>
+              )}
+
+              {post.category === 'match' && (post.matchDuration || post.setScore) && (
                 <div className="px-3.5 py-2 bg-[#12141c] border-y border-white/[0.04] flex items-center gap-3 text-xs text-gray-300 font-chivo">
                   {post.matchDuration && (
                     <span className="flex items-center gap-1 font-semibold">

@@ -29,6 +29,33 @@ export interface SquashMember {
   phone?: string;
   user_id?: string;
   created_at?: string;
+  fcmToken?: string;
+  pushEnabled?: boolean;
+  pushSubscribedAt?: string;
+  devicePlatform?: 'mobile' | 'desktop' | 'tablet' | 'unknown';
+}
+
+export interface ClubPushToken {
+  token: string;
+  memberId: string;
+  memberName: string;
+  role: string;
+  createdAt: string;
+  lastActiveAt: string;
+  userAgent?: string;
+  platform?: string;
+}
+
+export interface ClubPushLog {
+  id: string;
+  title: string;
+  body: string;
+  senderName: string;
+  sentAt: string;
+  targetCount: number;
+  category: 'all' | 'match' | 'awards';
+  postId?: string;
+  url?: string;
 }
 
 export interface HonorItem {
@@ -72,6 +99,7 @@ export interface FeedPost {
   caption: string;
   matchDuration?: string;
   setScore?: string;
+  awardsDetail?: string;
   niceShots: number;
   isNiceShotGiven?: boolean;
   isBookmarked?: boolean;

@@ -10,6 +10,8 @@ interface HeaderProps {
   cloudConnected?: boolean;
   currentUser?: SquashMember | null;
   selectedMember?: SquashMember;
+  pushSubscribed?: boolean;
+  onOpenPushPrompt?: () => void;
   onLogout?: () => void;
   onOpenGate?: () => void;
   onSyncNow?: () => void;
@@ -22,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   isSyncing,
   cloudConnected = true,
   currentUser,
+  pushSubscribed,
+  onOpenPushPrompt,
   onLogout,
   onSyncNow,
   onManualSync,
@@ -78,6 +82,24 @@ export const Header: React.FC<HeaderProps> = ({
             />
             <span className="hidden xs:inline">실시간 연동</span>
           </div>
+
+          {/* Web Push (Google FCM) Notification Icon */}
+          {onOpenPushPrompt && (
+            <button
+              onClick={onOpenPushPrompt}
+              title={pushSubscribed ? '푸시 알림 구독 중 (클릭 시 상태 확인)' : '구글 FCM 푸시 알림 신청하기'}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-chivo font-bold transition-all cursor-pointer ${
+                pushSubscribed
+                  ? 'bg-[#f5c200]/15 border-[#f5c200]/40 text-[#f5c200]'
+                  : 'bg-[#161822] hover:bg-[#1e222d] border-white/10 text-gray-300 hover:text-white'
+              }`}
+            >
+              <span className="text-xs">🔔</span>
+              <span className="text-[10px] hidden sm:inline">
+                {pushSubscribed ? '푸시 ON' : '푸시 알림'}
+              </span>
+            </button>
+          )}
 
           {/* Sync Now Button */}
           {handleSync && (

@@ -9,16 +9,17 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { SquashMember, FeedPost } from '../types';
+import { SquashMember, FeedPost, ClubPushToken, ClubPushLog } from '../types';
 import { INITIAL_MEMBERS } from '../data/initialData';
 
 const MEMBERS_COLLECTION = 'club_members';
 const POSTS_COLLECTION = 'club_posts';
+const TOKENS_COLLECTION = 'club_push_tokens';
+const PUSH_LOGS_COLLECTION = 'club_push_logs';
 const META_DOC = 'club_metadata';
 
 /**
  * Real-time listener for Members collection.
- * Triggers callback immediately and on every remote change (Add, Update, Delete) from any device (Mobile or PC).
  */
 export function subscribeToMembers(
   onUpdate: (members: SquashMember[]) => void,
@@ -70,8 +71,6 @@ export function subscribeToMembers(
 
 /**
  * Real-time listener for Feed Posts collection.
- * Pure real-time reflection of Firestore: NEVER re-seeds initial posts when empty.
- * Deleting posts guarantees permanent deletion across Mobile and PC.
  */
 export function subscribeToPosts(
   onUpdate: (posts: FeedPost[]) => void,
@@ -100,6 +99,58 @@ export function subscribeToPosts(
 }
 
 /**
+ * Real-time listener for registered push notification tokens
+ */
+export function subscribeToPushTokens(
+  onUpdate: (tokens: ClubPushToken[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const tokensRef = collection(db, TOKENS_COLLECTION);
+  return onSnapshot(
+    tokensRef,
+    (snapshot) => {
+      const tokens: ClubPushToken[] = [];
+      snapshot.forEach((d) => tokens.push(d.data() as ClubPushToken));
+      onUpdate(tokens);
+    },
+    (err) => {
+      console.error('Firestore subscribeToPushTokens error:', err);
+      if (onError) onError(err);
+    }
+  );
+}
+
+/**
+ * Save / Register device FCM push token into Firestore
+ */
+export async function savePushTokenToFirestore(pushToken: ClubPushToken): Promise<void> {
+  const tokenDoc = doc(db, TOKENS_COLLECTION, pushToken.token);
+  await setDoc(tokenDoc, JSON.parse(JSON.stringify(pushToken)), { merge: true });
+
+  // Also update member's own record with token & pushEnabled flag
+  if (pushToken.memberId) {
+    const memberDoc = doc(db, MEMBERS_COLLECTION, pushToken.memberId);
+    await setDoc(
+      memberDoc,
+      {
+        fcmToken: pushToken.token,
+        pushEnabled: true,
+        pushSubscribedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
+}
+
+/**
+ * Record a push broadcast log in Firestore
+ */
+export async function logPushBroadcast(log: ClubPushLog): Promise<void> {
+  const logDoc = doc(db, PUSH_LOGS_COLLECTION, log.id);
+  await setDoc(logDoc, JSON.parse(JSON.stringify(log)), { merge: true });
+}
+
+/**
  * Add or Update member in Firestore
  */
 export async function saveMemberToFirestore(member: SquashMember): Promise<void> {
@@ -109,7 +160,7 @@ export async function saveMemberToFirestore(member: SquashMember): Promise<void>
 }
 
 /**
- * Delete member from Firestore (Real-time removes on both Mobile & PC)
+ * Delete member from Firestore
  */
 export async function deleteMemberFromFirestore(memberId: string): Promise<void> {
   const memberDoc = doc(db, MEMBERS_COLLECTION, memberId);

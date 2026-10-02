@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, MapPin, Clock, Calendar, Save, Trash2 } from 'lucide-react';
+import { X, Camera, FolderOpen, MapPin, Clock, Trophy, Save, Trash2 } from 'lucide-react';
 import { FeedPost } from '../types';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
@@ -19,15 +19,22 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
   onDeletePost,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [caption, setCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [category, setCategory] = useState<'match' | 'awards' | 'all'>('match');
+
+  // 게임/매치 전용
   const [location, setLocation] = useState('');
   const [matchDuration, setMatchDuration] = useState('');
   const [setScore, setSetScore] = useState('');
+
+  // 대회/수상 전용
+  const [awardsDetail, setAwardsDetail] = useState('');
+
   const [badgeTag, setBadgeTag] = useState('');
   const [badgeType, setBadgeType] = useState<'pro' | 'kit' | 'trophy' | 'regular'>('pro');
-  const [category, setCategory] = useState<'all' | 'match' | 'awards'>('match');
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
@@ -37,6 +44,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       setLocation(post.location || '');
       setMatchDuration(post.matchDuration || '');
       setSetScore(post.setScore || '');
+      setAwardsDetail(post.awardsDetail || '');
       setBadgeTag(post.badgeTag || '');
       setBadgeType(post.badgeType || 'regular');
       setCategory(post.category || 'match');
@@ -56,24 +64,40 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       };
       reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!caption.trim()) {
-      alert('게시글 내용을 입력해 주세요.');
+      alert('공지 / 경기 내용을 작성해주세요.');
       return;
+    }
+
+    let calculatedBadgeTag = badgeTag;
+    let calculatedBadgeType = badgeType;
+
+    if (category === 'match') {
+      calculatedBadgeTag = badgeTag || 'GAME / MATCH';
+      calculatedBadgeType = 'pro';
+    } else if (category === 'awards') {
+      calculatedBadgeTag = awardsDetail ? `🏆 ${awardsDetail}` : 'CHAMPIONSHIP';
+      calculatedBadgeType = 'trophy';
+    } else {
+      calculatedBadgeTag = 'NOTICE';
+      calculatedBadgeType = 'regular';
     }
 
     onUpdatePost({
       ...post,
-      caption,
-      imageUrl,
-      location,
-      matchDuration: matchDuration || undefined,
-      setScore: setScore || undefined,
-      badgeTag: badgeTag || undefined,
-      badgeType,
+      caption: caption.trim(),
+      imageUrl: imageUrl || post.imageUrl,
+      location: category === 'match' ? (location.trim() || '클럽 코트') : 'MAKS 스쿼시 클럽',
+      matchDuration: category === 'match' ? matchDuration.trim() || undefined : undefined,
+      setScore: category === 'match' ? setScore.trim() || undefined : undefined,
+      awardsDetail: category === 'awards' ? awardsDetail.trim() || undefined : undefined,
+      badgeTag: calculatedBadgeTag || undefined,
+      badgeType: calculatedBadgeType,
       category,
     });
 
@@ -98,67 +122,79 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-[#f5c200]">✏️</span>
             <h2 className="font-chivo font-black text-base text-white">
-              게시물 수정
+              게시글 수정
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 rounded-md"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto no-scrollbar">
-          {/* Post Author Preview */}
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#11131a] border border-white/[0.06]">
-            <div className="flex items-center gap-2">
-              <img
-                src={post.authorAvatar}
-                alt={post.authorName}
-                className="w-8 h-8 rounded-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div>
-                <span className="font-chivo font-bold text-xs text-white block">
-                  {post.authorName}
-                </span>
-                <span className="text-[10px] text-gray-400 font-chivo">
-                  {post.timeAgo} 작성됨
-                </span>
-              </div>
-            </div>
-
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={handleOpenDelete}
-              className="px-2.5 py-1.5 rounded-md bg-red-950/70 hover:bg-red-900 border border-red-500/40 text-red-300 font-chivo font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+              title="게시글 삭제"
             >
-              <Trash2 size={13} />
-              <span>삭제하기</span>
+              <Trash2 size={16} />
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-1 rounded-md cursor-pointer transition-colors"
+            >
+              <X size={18} />
             </button>
           </div>
+        </div>
 
-          {/* Photo Preview & Edit */}
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[82vh] overflow-y-auto no-scrollbar">
+          {/* Category Tabs: 일반 공지, 대회/수상, 게임/매치 */}
           <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-              게시물 사진
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
+              공지 분류 태그
             </label>
-            <div className="relative aspect-video rounded-xl overflow-hidden bg-[#0c0e15] border border-white/10 mb-2">
-              <img
-                src={imageUrl}
-                alt="미리보기"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              {badgeTag && (
-                <div className="absolute bottom-3 left-3 bg-[#11131a]/90 backdrop-blur-md border border-[#f5c200]/40 px-2.5 py-1 rounded text-[10px] font-chivo font-black text-[#f5c200] tracking-wider uppercase">
-                  {badgeTag}
-                </div>
-              )}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setCategory('all')}
+                className={`py-2 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  category === 'all'
+                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] font-extrabold shadow-sm'
+                    : 'bg-[#11131a] text-gray-400 border-white/10'
+                }`}
+              >
+                <span>📢</span>
+                <span>일반 공지</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategory('awards')}
+                className={`py-2 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  category === 'awards'
+                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] font-extrabold shadow-sm'
+                    : 'bg-[#11131a] text-gray-400 border-white/10'
+                }`}
+              >
+                <span>🏆</span>
+                <span>대회/수상</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategory('match')}
+                className={`py-2 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  category === 'match'
+                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] font-extrabold shadow-sm'
+                    : 'bg-[#11131a] text-gray-400 border-white/10'
+                }`}
+              >
+                <span>🔥</span>
+                <span>게임/매치</span>
+              </button>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2">
+          {/* Photo Section: 파일선택 & 사진촬영 */}
+          <div>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
+              사진 수정 (파일 선택 / 사진 촬영)
+            </label>
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -169,110 +205,124 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 rounded bg-[#1e222d] hover:bg-[#282a31] border border-white/10 text-xs font-chivo font-bold text-white flex items-center gap-1.5"
+                className="py-2 px-3 rounded-lg bg-[#1e222d] hover:bg-[#282d3c] border border-white/10 text-xs font-chivo font-bold text-gray-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
-                <Camera size={14} />
-                <span>사진 변경</span>
+                <FolderOpen size={14} className="text-[#f5c200]" />
+                <span>파일 선택</span>
+              </button>
+
+              <input
+                type="file"
+                ref={cameraInputRef}
+                onChange={handleImageFileSelect}
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="py-2 px-3 rounded-lg bg-[#1e222d] hover:bg-[#282d3c] border border-white/10 text-xs font-chivo font-bold text-gray-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Camera size={14} className="text-[#f5c200]" />
+                <span>사진 촬영</span>
               </button>
             </div>
+
+            {imageUrl && (
+              <div className="relative aspect-video rounded-xl overflow-hidden border border-white/15 bg-black/40">
+                <img
+                  src={imageUrl}
+                  alt="미리보기"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
           </div>
+
+          {/* Conditional Fields */}
+          {category === 'match' && (
+            <div className="space-y-3 p-3 rounded-xl bg-[#11131a]/80 border border-white/10 animate-in fade-in duration-150">
+              <div className="text-[11px] font-chivo font-black text-[#f5c200] flex items-center gap-1.5">
+                <span>🔥</span>
+                <span>게임 / 매치 상세 정보</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+                    🎾 경기 스코어
+                  </label>
+                  <input
+                    type="text"
+                    value={setScore}
+                    onChange={(e) => setSetScore(e.target.value)}
+                    placeholder="예: 세트 스코어 3:0"
+                    className="w-full px-3 py-2 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
+                    <Clock size={12} className="text-[#f5c200]" />
+                    <span>경기 시간</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={matchDuration}
+                    onChange={(e) => setMatchDuration(e.target.value)}
+                    placeholder="예: 총 60분 경기"
+                    className="w-full px-3 py-2 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
+                  <MapPin size={12} className="text-[#f5c200]" />
+                  <span>장소</span>
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="예: 서울 탄천 스쿼시 코트"
+                  className="w-full px-3 py-2 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                />
+              </div>
+            </div>
+          )}
+
+          {category === 'awards' && (
+            <div className="space-y-2 p-3 rounded-xl bg-[#11131a]/80 border border-white/10 animate-in fade-in duration-150">
+              <div className="text-[11px] font-chivo font-black text-[#f5c200] flex items-center gap-1.5">
+                <Trophy size={13} className="text-[#f5c200]" />
+                <span>대회 / 수상 상세 정보</span>
+              </div>
+              <div>
+                <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+                  수상내역 입력 <span className="text-[#f5c200]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={awardsDetail}
+                  onChange={(e) => setAwardsDetail(e.target.value)}
+                  placeholder="예: 청주스쿼시대회 S1 우승"
+                  className="w-full px-3 py-2.5 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Caption */}
           <div>
             <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-              게시글 내용 <span className="text-[#f5c200]">*</span>
+              공지 / 경기 내용 <span className="text-red-400">*</span>
             </label>
             <textarea
-              rows={3}
+              rows={4}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200] leading-relaxed"
+              placeholder="스쿼시 경기 결과나 클럽 공지사항을 작성해주세요..."
+              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200] leading-relaxed resize-none"
               required
-            />
-          </div>
-
-          {/* Category & Badge */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                카테고리
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-              >
-                <option value="match">#오늘의게임 🔥</option>
-                <option value="awards">#대회수상 🏆</option>
-                <option value="all">#클럽일상 ⚡</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                뱃지 태그
-              </label>
-              <select
-                value={badgeTag}
-                onChange={(e) => {
-                  setBadgeTag(e.target.value);
-                  if (e.target.value === 'PRO MATCH') setBadgeType('pro');
-                  else if (e.target.value === 'OFFICIAL KIT 2024') setBadgeType('kit');
-                  else setBadgeType('regular');
-                }}
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-              >
-                <option value="">없음</option>
-                <option value="PRO MATCH">●● PRO MATCH</option>
-                <option value="OFFICIAL KIT 2024">OFFICIAL KIT 2024</option>
-                <option value="CHAMPIONSHIP">CHAMPIONSHIP 🏆</option>
-                <option value="MORNING DRILL">MORNING DRILL ⚡</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Match Telemetry */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
-                <Clock size={12} className="text-[#f5c200]" />
-                <span>경기 시간</span>
-              </label>
-              <input
-                type="text"
-                value={matchDuration}
-                onChange={(e) => setMatchDuration(e.target.value)}
-                placeholder="예: 총 118분 혈투"
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
-                <Calendar size={12} className="text-amber-400" />
-                <span>세트 스코어</span>
-              </label>
-              <input
-                type="text"
-                value={setScore}
-                onChange={(e) => setSetScore(e.target.value)}
-                placeholder="예: 세트 스코어 3:1"
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-              />
-            </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
-              <MapPin size={12} className="text-[#f5c200]" />
-              <span>장소</span>
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
             />
           </div>
 
@@ -281,13 +331,13 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 px-4 rounded-lg bg-[#11131a] hover:bg-[#1a1c24] border border-white/10 text-xs font-chivo font-bold text-gray-300"
+              className="flex-1 py-3 px-4 rounded-xl bg-[#11131a] hover:bg-[#1a1c24] border border-white/10 text-xs font-chivo font-bold text-gray-300 cursor-pointer"
             >
               취소
             </button>
             <button
               type="submit"
-              className="flex-2 py-3 px-4 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+              className="flex-2 py-3 px-4 rounded-xl bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Save size={16} />
               <span>수정 사항 저장</span>
@@ -299,10 +349,10 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={isConfirmDeleteOpen}
-        onClose={() => setIsConfirmDeleteOpen(false)}
+        title="게시글 삭제"
+        description="이 게시글을 정말로 삭제하시겠습니까?"
         onConfirm={handleConfirmDelete}
-        title="게시물 삭제"
-        description="정말로 이 게시물을 삭제하시겠습니까? 삭제된 게시물은 복구할 수 없습니다."
+        onClose={() => setIsConfirmDeleteOpen(false)}
       />
     </div>
   );

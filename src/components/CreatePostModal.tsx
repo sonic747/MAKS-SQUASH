@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, Image as ImageIcon, MapPin, Clock, Calendar } from 'lucide-react';
+import { X, Camera, FolderOpen, MapPin, Clock, Trophy, AlertCircle, Trash2 } from 'lucide-react';
 import { SquashMember, FeedPost } from '../types';
 
 interface CreatePostModalProps {
@@ -7,7 +7,10 @@ interface CreatePostModalProps {
   onClose: () => void;
   members: SquashMember[];
   currentUser?: SquashMember | null;
-  onAddPost: (post: Omit<FeedPost, 'id' | 'niceShots' | 'isNiceShotGiven' | 'isBookmarked' | 'comments' | 'commentsCount'>) => void;
+  onAddPost: (
+    post: Omit<FeedPost, 'id' | 'niceShots' | 'isNiceShotGiven' | 'isBookmarked' | 'comments' | 'commentsCount'>,
+    sendPush?: boolean
+  ) => void;
 }
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({
@@ -18,17 +21,23 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   onAddPost,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
   const [selectedMemberId, setSelectedMemberId] = useState(currentUser?.id || members[0]?.id || '');
+  const [category, setCategory] = useState<'all' | 'awards' | 'match'>('all');
+  const [imageUrl, setImageUrl] = useState<string>('');
   const [caption, setCaption] = useState('');
-  const [imageUrl, setImageUrl] = useState(
-    'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1000&q=80'
-  );
+
+  // 게임/매치 전용 필드 (경기스코어, 경기시간, 장소)
+  const [setScore, setSetScore] = useState('');
+  const [matchDuration, setMatchDuration] = useState('');
   const [location, setLocation] = useState('서울 탄천 스쿼시 코트');
-  const [matchDuration, setMatchDuration] = useState('총 95분 혈투');
-  const [setScore, setSetScore] = useState('세트 스코어 3:0');
-  const [badgeTag, setBadgeTag] = useState('PRO MATCH');
-  const [badgeType, setBadgeType] = useState<'pro' | 'kit' | 'trophy' | 'regular'>('pro');
-  const [category, setCategory] = useState<'all' | 'match' | 'awards'>('match');
+
+  // 대회/수상 전용 필드 (수상내역)
+  const [awardsDetail, setAwardsDetail] = useState('');
+
+  // 웹 푸시 알림 동시 발송 옵션
+  const [sendPushNotification, setSendPushNotification] = useState(true);
 
   if (!isOpen) return null;
 
@@ -45,32 +54,36 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       };
       reader.readAsDataURL(file);
     }
+    // reset input value so re-selecting same file triggers onChange
+    e.target.value = '';
   };
-
-  const sampleSquashImages = [
-    {
-      title: '우승 트로피 세레머니',
-      url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1000&q=80',
-    },
-    {
-      title: '스쿼시 라켓 & 볼 컬렉션',
-      url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1000&q=80',
-    },
-    {
-      title: '역동적인 경기 랠리',
-      url: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1000&q=80',
-    },
-    {
-      title: '스쿼시 클럽 공식 단체 코트',
-      url: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=1000&q=80',
-    },
-  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!caption.trim()) {
-      alert('게시글 내용을 입력해 주세요.');
+      alert('공지 / 경기 내용을 작성해주세요.');
       return;
+    }
+
+    // Default image if user didn't upload a photo
+    const finalImage =
+      imageUrl ||
+      (category === 'awards'
+        ? 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1000&q=80'
+        : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1000&q=80');
+
+    let badgeTag: string | undefined = undefined;
+    let badgeType: 'pro' | 'kit' | 'trophy' | 'regular' = 'regular';
+
+    if (category === 'match') {
+      badgeTag = 'GAME / MATCH';
+      badgeType = 'pro';
+    } else if (category === 'awards') {
+      badgeTag = awardsDetail ? `🏆 ${awardsDetail}` : 'CHAMPIONSHIP';
+      badgeType = 'trophy';
+    } else {
+      badgeTag = 'NOTICE';
+      badgeType = 'regular';
     }
 
     onAddPost({
@@ -80,15 +93,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       authorBadge: currentMember.role === 'captain' ? 'CAPTAIN' : currentMember.roleLabel,
       isCaptain: currentMember.role === 'captain',
       timeAgo: '방금 전',
-      location: location || '클럽 코트',
-      badgeTag: badgeTag || undefined,
+      location: category === 'match' ? (location.trim() || '클럽 코트') : 'MAKS 스쿼시 클럽',
+      badgeTag,
       badgeType,
-      imageUrl,
-      caption,
-      matchDuration: matchDuration || undefined,
-      setScore: setScore || undefined,
+      imageUrl: finalImage,
+      caption: caption.trim(),
+      matchDuration: category === 'match' ? matchDuration.trim() || undefined : undefined,
+      setScore: category === 'match' ? setScore.trim() || undefined : undefined,
+      awardsDetail: category === 'awards' ? awardsDetail.trim() || undefined : undefined,
       category,
-    });
+    }, sendPushNotification);
 
     onClose();
   };
@@ -106,16 +120,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 rounded-md cursor-pointer"
+            className="text-gray-400 hover:text-white p-1 rounded-md cursor-pointer transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto no-scrollbar">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[82vh] overflow-y-auto no-scrollbar">
           {/* Author Selection */}
           <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
               게시자 선택
             </label>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
@@ -126,8 +140,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   onClick={() => setSelectedMemberId(m.id)}
                   className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-all cursor-pointer ${
                     selectedMemberId === m.id
-                      ? 'bg-[#f5c200] text-[#0f1118] font-bold border-[#f5c200]'
-                      : 'bg-[#11131a] text-gray-300 border-white/10'
+                      ? 'bg-[#f5c200] text-[#0f1118] font-bold border-[#f5c200] shadow-sm'
+                      : 'bg-[#11131a] text-gray-300 border-white/10 hover:border-white/20'
                   }`}
                 >
                   <img
@@ -142,74 +156,58 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
           </div>
 
-          {/* Category Tabs */}
+          {/* Category Tabs: 일반 공지 (기본), 대회/수상, 게임/매치 순서 */}
           <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
               공지 분류 태그
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setCategory('match');
-                  setBadgeTag('PRO MATCH');
-                  setBadgeType('pro');
-                }}
-                className={`py-2 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer ${
-                  category === 'match'
-                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200]'
-                    : 'bg-[#11131a] text-gray-400 border-white/10'
-                }`}
-              >
-                🔥 게임/매치
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory('awards');
-                  setBadgeTag('CHAMPIONSHIP');
-                  setBadgeType('trophy');
-                }}
-                className={`py-2 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer ${
-                  category === 'awards'
-                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200]'
-                    : 'bg-[#11131a] text-gray-400 border-white/10'
-                }`}
-              >
-                🏆 대회/수상
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory('all');
-                  setBadgeTag('CLUB EVENT');
-                  setBadgeType('regular');
-                }}
-                className={`py-2 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer ${
+                onClick={() => setCategory('all')}
+                className={`py-2.5 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   category === 'all'
-                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200]'
-                    : 'bg-[#11131a] text-gray-400 border-white/10'
+                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] shadow-md font-extrabold'
+                    : 'bg-[#11131a] text-gray-400 border-white/10 hover:text-gray-200'
                 }`}
               >
-                📢 일반 공지
+                <span>📢</span>
+                <span>일반 공지</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategory('awards')}
+                className={`py-2.5 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  category === 'awards'
+                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] shadow-md font-extrabold'
+                    : 'bg-[#11131a] text-gray-400 border-white/10 hover:text-gray-200'
+                }`}
+              >
+                <span>🏆</span>
+                <span>대회/수상</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategory('match')}
+                className={`py-2.5 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  category === 'match'
+                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] shadow-md font-extrabold'
+                    : 'bg-[#11131a] text-gray-400 border-white/10 hover:text-gray-200'
+                }`}
+              >
+                <span>🔥</span>
+                <span>게임/매치</span>
               </button>
             </div>
           </div>
 
-          {/* Photo Selection / Upload */}
+          {/* Photo Selection: 파일선택 & 사진촬영 버튼 (샘플 그림 완전 제거) */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-chivo font-bold text-gray-300 flex items-center gap-1">
-                <Camera size={13} className="text-[#f5c200]" />
-                <span>사진 선택 또는 직접 업로드</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="text-xs text-[#f5c200] hover:underline font-chivo font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <span>내 기기에서 사진 찾기</span>
-              </button>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
+              사진 등록 (파일 선택 / 사진 촬영)
+            </label>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {/* File Select Input */}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -217,112 +215,207 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 onChange={handleImageFileSelect}
                 className="hidden"
               />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#282d3c] border border-white/10 hover:border-white/25 text-xs font-chivo font-bold text-gray-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <FolderOpen size={16} className="text-[#f5c200]" />
+                <span>파일 선택</span>
+              </button>
+
+              {/* Camera Capture Input */}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageFileSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#282d3c] border border-white/10 hover:border-white/25 text-xs font-chivo font-bold text-gray-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Camera size={16} className="text-[#f5c200]" />
+                <span>사진 촬영</span>
+              </button>
             </div>
 
-            {/* Preview & Samples */}
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              {sampleSquashImages.map((img, idx) => (
+            {/* Image Preview or Placeholder */}
+            {imageUrl ? (
+              <div className="relative aspect-video rounded-xl overflow-hidden border border-white/15 bg-black/50 group">
+                <img
+                  src={imageUrl}
+                  alt="선택된 사진"
+                  className="w-full h-full object-cover"
+                />
                 <button
                   type="button"
-                  key={idx}
-                  onClick={() => setImageUrl(img.url)}
-                  className={`aspect-video rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-                    imageUrl === img.url
-                      ? 'border-[#f5c200] scale-105 shadow-md'
-                      : 'border-white/10 opacity-70 hover:opacity-100'
-                  }`}
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/70 hover:bg-red-500/80 text-white transition-colors cursor-pointer"
+                  title="사진 삭제"
                 >
-                  <img
-                    src={img.url}
-                    alt={img.title}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                  <Trash2 size={14} />
                 </button>
-              ))}
-            </div>
-
-            <div className="relative aspect-video rounded-xl overflow-hidden border border-white/15 bg-black/40">
-              <img
-                src={imageUrl}
-                alt="Selected"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+                <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 backdrop-blur-sm text-[10px] text-gray-300 font-chivo">
+                  ✓ 사진 등록됨
+                </div>
+              </div>
+            ) : (
+              <div className="aspect-video rounded-xl border border-dashed border-white/15 bg-[#11131a]/60 flex flex-col items-center justify-center text-gray-400 gap-1.5 p-4 text-center">
+                <Camera size={26} className="text-gray-500" />
+                <span className="text-xs font-chivo text-gray-400 font-semibold">
+                  위의 [파일 선택] 또는 [사진 촬영] 버튼을 눌러주세요
+                </span>
+                <span className="text-[11px] text-gray-500 font-sans">
+                  사진 없이도 기본 클럽 그래픽으로 업로드 가능합니다
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Caption */}
+          {/* Conditional Fields based on Category */}
+
+          {/* 1. [게임/매치] 선택 시: 경기스코어, 경기시간, 장소 */}
+          {category === 'match' && (
+            <div className="space-y-3 p-3 rounded-xl bg-[#11131a]/80 border border-white/10 animate-in fade-in duration-150">
+              <div className="text-[11px] font-chivo font-black text-[#f5c200] flex items-center gap-1.5">
+                <span>🔥</span>
+                <span>게임 / 매치 상세 정보</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
+                    <span>🎾 경기 스코어</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={setScore}
+                    onChange={(e) => setSetScore(e.target.value)}
+                    placeholder="예: 세트 스코어 3:0"
+                    className="w-full px-3 py-2 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
+                    <Clock size={12} className="text-[#f5c200]" />
+                    <span>경기 시간</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={matchDuration}
+                    onChange={(e) => setMatchDuration(e.target.value)}
+                    placeholder="예: 총 60분 경기"
+                    className="w-full px-3 py-2 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
+                  <MapPin size={12} className="text-[#f5c200]" />
+                  <span>장소</span>
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="예: 서울 탄천 스쿼시 코트"
+                  className="w-full px-3 py-2 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 2. [대회/수상] 선택 시: 수상내역만 입력 (예: 청주스쿼시대회 S1 우승) */}
+          {category === 'awards' && (
+            <div className="space-y-2 p-3 rounded-xl bg-[#11131a]/80 border border-white/10 animate-in fade-in duration-150">
+              <div className="text-[11px] font-chivo font-black text-[#f5c200] flex items-center gap-1.5">
+                <Trophy size={13} className="text-[#f5c200]" />
+                <span>대회 / 수상 상세 정보</span>
+              </div>
+              <div>
+                <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+                  수상내역 입력 <span className="text-[#f5c200]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={awardsDetail}
+                  onChange={(e) => setAwardsDetail(e.target.value)}
+                  placeholder="예: 청주스쿼시대회 S1 우승"
+                  className="w-full px-3 py-2.5 rounded-lg bg-[#161822] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200]"
+                />
+                <p className="text-[10px] text-gray-400 mt-1 font-sans">
+                  대회명 및 수상 등급을 입력하시면 피드 상단 뱃지와 배너에 공식 기록됩니다.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 3. [공통 / 일반공지]: "공지 / 경기 내용" 만 나오도록 */}
           <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-              공지 / 경기 내용 <span className="text-red-400">*</span>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center justify-between">
+              <span>
+                공지 / 경기 내용 <span className="text-red-400">*</span>
+              </span>
+              <span className="text-[10px] text-gray-400 font-normal">필수</span>
             </label>
             <textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
-              placeholder="스쿼시 경기 결과나 클럽 공지사항을 작성해주세요..."
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200] resize-none"
+              placeholder={
+                category === 'match'
+                  ? '경기 내용과 스코어, 랠리 후기를 입력해주세요...'
+                  : category === 'awards'
+                  ? '대회 결과 및 축하 메시지를 입력해주세요...'
+                  : '스쿼시 클럽 공지사항 및 전달사항을 입력해주세요...'
+              }
+              rows={4}
+              className="w-full px-3 py-2.5 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#f5c200] resize-none leading-relaxed"
               required
             />
           </div>
 
-          {/* Match Score & Duration */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
-                <span>경기 스코어</span>
-              </label>
-              <input
-                type="text"
-                value={setScore}
-                onChange={(e) => setSetScore(e.target.value)}
-                placeholder="예: 3:0 완승"
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-              />
+          {/* Push Notification Broadcast Option */}
+          <div className="p-3 rounded-xl bg-[#11131a] border border-[#f5c200]/25 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[#f5c200] text-sm">🔔</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-chivo font-black text-white flex items-center gap-1.5">
+                  <span>전체 회원 웹 푸시 발송</span>
+                  <span className="px-1.5 py-0.2 rounded bg-[#f5c200]/20 text-[#f5c200] text-[9px] font-bold">FCM 무료</span>
+                </span>
+                <span className="text-[10px] text-gray-400 truncate">
+                  가입된 회원 스마트폰/PC 상단에 카카오톡 스타일 배너 알림을 띄웁니다
+                </span>
+              </div>
             </div>
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
-                <Clock size={12} className="text-[#f5c200]" />
-                <span>경기 시간</span>
-              </label>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
-                type="text"
-                value={matchDuration}
-                onChange={(e) => setMatchDuration(e.target.value)}
-                placeholder="예: 총 60분 경기"
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
+                type="checkbox"
+                checked={sendPushNotification}
+                onChange={(e) => setSendPushNotification(e.target.checked)}
+                className="sr-only peer"
               />
-            </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1 flex items-center gap-1">
-              <MapPin size={12} className="text-[#f5c200]" />
-              <span>장소</span>
+              <div className="w-9 h-5 bg-[#1e222d] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#f5c200]"></div>
             </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="예: 서울 탄천 스쿼시 코트"
-              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-            />
           </div>
 
-          {/* Buttons */}
+          {/* Bottom Buttons: 취소 & 즉시 피드 업로드 */}
           <div className="pt-2 flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 px-4 rounded-lg bg-[#11131a] hover:bg-[#1a1c24] border border-white/10 text-xs font-chivo font-bold text-gray-300 cursor-pointer"
+              className="flex-1 py-3 px-4 rounded-xl bg-[#11131a] hover:bg-[#1a1c24] border border-white/10 text-xs font-chivo font-bold text-gray-300 cursor-pointer transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
-              className="flex-2 py-3 px-4 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm shadow-[0_4px_16px_rgba(245,194,0,0.3)] active:scale-[0.98] transition-all cursor-pointer"
+              className="flex-2 py-3 px-4 rounded-xl bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm shadow-[0_4px_16px_rgba(245,194,0,0.3)] active:scale-[0.98] transition-all cursor-pointer text-center"
             >
               즉시 피드 업로드
             </button>
