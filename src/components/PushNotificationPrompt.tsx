@@ -122,11 +122,31 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
           </div>
         </div>
 
-        {/* Error message */}
+        {/* Error message / OS Specific Help */}
         {status === 'error' && (
-          <div className="p-2.5 rounded-lg bg-red-950/50 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
-            <AlertCircle size={15} className="shrink-0" />
-            <span>{errorMessage}</span>
+          <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-red-200 text-xs space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={16} className="shrink-0 text-red-400 mt-0.5" />
+              <span className="font-semibold leading-relaxed">{errorMessage}</span>
+            </div>
+
+            {/* In-App / KakaoTalk Guide */}
+            {errorMessage.includes('카카오톡') && (
+              <div className="p-2.5 rounded-lg bg-[#0c0e15] border border-white/10 text-[11px] text-gray-300 space-y-1">
+                <div className="font-bold text-[#f5c200]">💡 카카오톡/인앱에서 외부 브라우저로 여는 법</div>
+                <div>화면 우측 하단 <strong className="text-white">점 세개(⋮)</strong> 또는 공유 버튼 ➔ <strong className="text-white">[기본 브라우저로 열기]</strong> (크롬/사파리)를 누르시면 푸시 알림이 즉시 활성화됩니다.</div>
+              </div>
+            )}
+
+            {/* iOS Safari Guide */}
+            {errorMessage.includes('아이폰') && (
+              <div className="p-2.5 rounded-lg bg-[#0c0e15] border border-white/10 text-[11px] text-gray-300 space-y-1">
+                <div className="font-bold text-[#f5c200]">📱 아이폰(iOS Safari) 푸시 알림 허용 방법</div>
+                <div>1. Safari 하단 중앙 <strong className="text-white">[공유 아이콘(↑)]</strong> 터치</div>
+                <div>2. 메뉴를 내려 <strong className="text-white">[홈 화면에 추가]</strong> 터치</div>
+                <div>3. 홈 화면에 생성된 <strong className="text-[#f5c200]">MAKS 스쿼시 앱</strong> 아이콘을 열면 푸시 알림이 정상 작동합니다.</div>
+              </div>
+            )}
           </div>
         )}
 
