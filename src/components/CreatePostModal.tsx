@@ -379,29 +379,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             />
           </div>
 
-          {/* Push Notification Broadcast Option */}
+          {/* App Icon Unread Badge Notice */}
           <div className="p-3 rounded-xl bg-[#11131a] border border-[#f5c200]/25 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[#f5c200] text-sm">🔔</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="text-[#f5c200] text-sm">🔴</span>
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-chivo font-black text-white flex items-center gap-1.5">
-                  <span>전체 회원 웹 푸시 발송</span>
-                  <span className="px-1.5 py-0.2 rounded bg-[#f5c200]/20 text-[#f5c200] text-[9px] font-bold">FCM 무료</span>
+                  <span>바탕화면 MAKS 아이콘 뱃지 자동 카운트</span>
                 </span>
                 <span className="text-[10px] text-gray-400 truncate">
-                  가입된 회원 스마트폰/PC 상단에 카카오톡 스타일 배너 알림을 띄웁니다
+                  새 공지가 등록되면 PC 및 모바일 바탕화면 아이콘에 읽지 않은 수량이 표시됩니다
                 </span>
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={sendPushNotification}
-                onChange={(e) => setSendPushNotification(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-[#1e222d] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#f5c200]"></div>
-            </label>
+            <div className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold shrink-0">
+              자동 반영
+            </div>
           </div>
 
           {/* Bottom Buttons: 취소 & 즉시 피드 업로드 */}

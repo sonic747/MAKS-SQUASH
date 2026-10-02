@@ -130,29 +130,10 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
       honors: [],
       photos: [],
       cheers: [],
-      pushEnabled: agreePush,
-      pushSubscribedAt: agreePush ? new Date().toISOString() : undefined,
     };
 
     onAddMember(newMember);
     onSelectMember(newMemberId);
-
-    // If user opted into push notifications, prompt for browser permission
-    if (agreePush) {
-      setTimeout(() => {
-        import('../firebase').then(({ requestPushPermissionAndGetToken, displayLocalPushNotification }) => {
-          requestPushPermissionAndGetToken(newMemberId, name.trim(), newMember.role)
-            .then((res) => {
-              if (res.success) {
-                displayLocalPushNotification('⚡ [MAKS SQUASH] 회원가입 완료 & 푸시 알림 등록!', {
-                  body: `${name.trim()}님 환영합니다! 이제 클럽 공지가 스마트폰/PC로 즉시 발송됩니다.`,
-                });
-              }
-            })
-            .catch(() => {});
-        });
-      }, 500);
-    }
 
     setFormSuccessMessage(`'${name.trim()}' 님이 새로운 클럽 정회원으로 성공적으로 등록되었습니다!`);
     setTimeout(() => {
@@ -454,34 +435,19 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
           </div>
         </div>
 
-        {/* Web Push (Google FCM) Notification Agreement */}
+        {/* MAKS Desktop & Mobile App Shortcut Info */}
         <div className="p-3.5 rounded-xl bg-[#11131a] border border-[#f5c200]/30 space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-base text-[#f5c200]">🔔</span>
-              <div>
-                <div className="text-xs font-chivo font-black text-white flex items-center gap-1.5">
-                  <span>웹 푸시(Web Push) 알림 구독</span>
-                  <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[#f5c200] text-[10px] font-bold">구글 FCM</span>
-                </div>
-                <div className="text-[11px] text-gray-400 mt-0.5">
-                  관리자 공지 및 경기 결과 등록 시 내 스마트폰/PC로 즉시 배너 알림 수신
-                </div>
+          <div className="flex items-center gap-3">
+            <span className="text-base text-[#f5c200]">📱</span>
+            <div>
+              <div className="text-xs font-chivo font-black text-white flex items-center gap-1.5">
+                <span>MAKS 바탕화면 단축아이콘 지원</span>
+                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[#f5c200] text-[10px] font-bold">PWA</span>
+              </div>
+              <div className="text-[11px] text-gray-400 mt-0.5">
+                가입 후 상단 [MAKS 아이콘 설치] 버튼을 누르면 PC 및 스마트폰 바탕화면에 즉시 생성됩니다.
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={agreePush}
-                onChange={(e) => setAgreePush(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-[#1e222d] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#f5c200]"></div>
-            </label>
-          </div>
-          <div className="text-[10px] text-gray-400 bg-[#0c0e15] p-2 rounded-lg border border-white/5 flex items-center gap-1.5">
-            <span>💡</span>
-            <span>가입 후 브라우저 상단에서 "알림 허용" 팝업이 뜨면 "허용"을 눌러주시면 100% 무료로 배너가 도착합니다.</span>
           </div>
         </div>
 

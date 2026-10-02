@@ -1,14 +1,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import firebaseConfig from '../firebase-applet-config.json';
-import { ClubPushToken } from './types';
-import { savePushTokenToFirestore } from './services/firestoreService';
 
 // Initialize Firebase App
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Firestore
+// Initialize Firestore Database
 export const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
@@ -27,162 +24,24 @@ export function isStandalonePWA(): boolean {
 export function isInAppBrowser(): boolean {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  // KakaoTalk, Naver, Line, Instagram, Facebook in-app webviews
   return /KAKAOTALK|NAVER|Line|Instagram|FB_IAB|FBAN|FBAV/i.test(ua);
 }
 
-// Check if Notification & Service Worker are available
-export function isPushNotificationSupported(): boolean {
-  if (typeof window === 'undefined') return false;
-  return 'Notification' in window && 'serviceWorker' in navigator;
-}
-
-// Get current browser notification permission
-export function getNotificationPermission(): NotificationPermission {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return 'default';
-  }
-  return Notification.permission;
-}
-
 /**
- * Register Service Worker for FCM Web Push
+ * Register Service Worker for PWA Offline Caching & App Badging
  */
-export async function registerPushServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+export async function registerPWAServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
   try {
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/',
     });
     return registration;
   } catch (err) {
-    console.warn('Service worker registration failed:', err);
+    console.warn('PWA service worker registration failed:', err);
     return null;
-  }
-}
-
-/**
- * Request Notification Permission and Generate/Retrieve FCM Token
- */
-export async function requestPushPermissionAndGetToken(
-  memberId: string,
-  memberName: string,
-  role: string
-): Promise<{ success: boolean; token?: string; error?: string; reason?: 'in_app' | 'ios_standalone' | 'unsupported' | 'denied' }> {
-  if (typeof window === 'undefined') {
-    return { success: false, error: '브라우저 환경이 아닙니다.' };
-  }
-
-  // 1-Click Push Registration: Never block the user with complex manual setup
-  const isRestrictedWebview = isInAppBrowser();
-  const isRestrictedIOS = isIOS() && !isStandalonePWA() && !('Notification' in window);
-
-  try {
-    let fcmToken = '';
-    let swReg: ServiceWorkerRegistration | null = null;
-
-    if (!isRestrictedWebview && !isRestrictedIOS && isPushNotificationSupported()) {
-      try {
-        swReg = await registerPushServiceWorker();
-        let permission: NotificationPermission = 'default';
-        try {
-          permission = await Notification.requestPermission();
-        } catch (permErr) {
-          permission = await new Promise<NotificationPermission>((resolve) => {
-            Notification.requestPermission((p) => resolve(p));
-          });
-        }
-
-        if (permission === 'granted') {
-          const messagingSupported = await isSupported().catch(() => false);
-          if (messagingSupported && firebaseConfig.apiKey) {
-            try {
-              const messaging = getMessaging(app);
-              fcmToken = await getToken(messaging, {
-                serviceWorkerRegistration: swReg || undefined,
-              });
-            } catch (fcmErr) {
-              console.warn('FCM direct token failed, generating unique device subscription ID', fcmErr);
-            }
-          }
-        }
-      } catch (browserErr) {
-        console.warn('Browser push registration fallback:', browserErr);
-      }
-    }
-
-    // Always guarantee a unique device subscription token
-    if (!fcmToken) {
-      const stored = localStorage.getItem('maks_device_push_token');
-      if (stored) {
-        fcmToken = stored;
-      } else {
-        fcmToken = `maks_push_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        localStorage.setItem('maks_device_push_token', fcmToken);
-      }
-    }
-
-    const platform = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      ? 'mobile'
-      : /Tablet|iPad/i.test(navigator.userAgent)
-      ? 'tablet'
-      : 'desktop';
-
-    const pushRecord: ClubPushToken = {
-      token: fcmToken,
-      memberId,
-      memberName,
-      role,
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString(),
-      userAgent: navigator.userAgent.substring(0, 150),
-      platform,
-    };
-
-    // Save to Firestore
-    await savePushTokenToFirestore(pushRecord);
-
-    // Save local active subscription state
-    localStorage.setItem('maks_push_subscribed', 'true');
-    localStorage.setItem('maks_push_token', fcmToken);
-
-    return { success: true, token: fcmToken };
-  } catch (err: any) {
-    console.error('Failed to register push token:', err);
-    return { success: false, error: err?.message || '알림 토큰 발급 중 오류가 발생했습니다.' };
-  }
-}
-
-/**
- * Display native browser push notification banner
- */
-export function displayLocalPushNotification(
-  title: string,
-  options?: { body?: string; icon?: string; tag?: string; url?: string }
-) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
-
-  const defaultIcon =
-    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=192&q=80';
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then((reg) => {
-      reg.showNotification(title, {
-        body: options?.body || 'MAKS 스쿼시 클럽의 새로운 소식을 확인하세요.',
-        icon: options?.icon || defaultIcon,
-        badge: defaultIcon,
-        tag: options?.tag || 'maks-notice',
-        data: { url: options?.url || '/' },
-      });
-    });
-  } else {
-    new Notification(title, {
-      body: options?.body || 'MAKS 스쿼시 클럽의 새로운 소식을 확인하세요.',
-      icon: options?.icon || defaultIcon,
-    });
   }
 }
 

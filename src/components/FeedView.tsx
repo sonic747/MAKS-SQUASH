@@ -6,8 +6,8 @@ import { DeleteConfirmModal } from './DeleteConfirmModal';
 interface FeedViewProps {
   posts: FeedPost[];
   members: SquashMember[];
-  pushSubscribed?: boolean;
-  onOpenPushPrompt?: () => void;
+  isPWAInstalled?: boolean;
+  onOpenInstallModal?: () => void;
   onOpenCreatePost: () => void;
   onToggleNiceShot: (postId: string) => void;
   onToggleBookmark: (postId: string) => void;
@@ -21,8 +21,8 @@ interface FeedViewProps {
 export const FeedView: React.FC<FeedViewProps> = ({
   posts,
   members,
-  pushSubscribed,
-  onOpenPushPrompt,
+  isPWAInstalled,
+  onOpenInstallModal,
   onOpenCreatePost,
   onToggleNiceShot,
   onToggleBookmark,
@@ -73,29 +73,33 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <span>공지 작성 / 사진 업로드</span>
       </button>
 
-      {/* 1-Click Push Notification Enable Button Banner (When not subscribed) */}
-      {!pushSubscribed && onOpenPushPrompt && (
-        <div className="p-3 rounded-xl bg-gradient-to-r from-[#1d2232] to-[#161822] border border-[#f5c200]/30 flex items-center justify-between gap-3 shadow-md animate-in fade-in">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[#f5c200]/15 border border-[#f5c200]/30 flex items-center justify-center text-[#f5c200] shrink-0 text-sm">
-              🔔
+      {/* MAKS Desktop / Mobile Shortcut App Banner */}
+      {!isPWAInstalled && onOpenInstallModal && (
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#1c202d] via-[#161822] to-[#12141c] border border-[#f5c200]/35 flex items-center justify-between gap-3 shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow ring-1 ring-[#f5c200]/40 p-0.5 bg-[#0f1118] shrink-0">
+              <img
+                src="/pwa-192x192.png"
+                alt="MAKS Icon"
+                className="w-full h-full object-cover rounded-[10px]"
+              />
             </div>
             <div className="min-w-0">
               <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
-                <span>클럽 실시간 공지 푸시 알림</span>
-                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[#f5c200] text-[9px] font-bold shrink-0">무료</span>
+                <span>바탕화면에 MAKS 단축아이콘 생성</span>
+                <span className="px-1.5 py-0.2 rounded bg-[#f5c200]/20 text-[#f5c200] text-[9px] font-bold shrink-0">무설치</span>
               </div>
-              <div className="text-[11px] text-gray-400 truncate">
-                버튼 한 번만 누르면 스마트폰 상단 배너로 즉시 도착
+              <div className="text-[11px] text-gray-300 truncate">
+                PC & 스마트폰 바탕화면 바로가기 + 새 공지 숫자 뱃지 지원
               </div>
             </div>
           </div>
           <button
             type="button"
-            onClick={onOpenPushPrompt}
-            className="px-3 py-1.5 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shrink-0 cursor-pointer shadow active:scale-95 transition-all"
+            onClick={onOpenInstallModal}
+            className="px-3.5 py-2 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shrink-0 cursor-pointer shadow active:scale-95 transition-all"
           >
-            알림 켜기
+            아이콘 추가
           </button>
         </div>
       )}

@@ -15,10 +15,10 @@ import { LightboxModal } from './components/LightboxModal';
 import { EditPostModal } from './components/EditPostModal';
 import { AuthGateModal } from './components/AuthGateModal';
 import { EditProfileModal } from './components/EditProfileModal';
-import { PushNotificationPrompt } from './components/PushNotificationPrompt';
+import { PWAInstallModal } from './components/PWAInstallModal';
 
 import { INITIAL_MEMBERS, INITIAL_POSTS } from './data/initialData';
-import { TabType, SquashMember, FeedPost, HonorItem, MemberPhoto, ClubPushLog } from './types';
+import { TabType, SquashMember, FeedPost, HonorItem, MemberPhoto } from './types';
 import {
   subscribeToMembers,
   subscribeToPosts,
@@ -27,13 +27,13 @@ import {
   savePostToFirestore,
   deletePostFromFirestore,
   syncAllToFirestore,
-  logPushBroadcast,
 } from './services/firestoreService';
 import {
-  registerPushServiceWorker,
-  displayLocalPushNotification,
-  getNotificationPermission,
+  registerPWAServiceWorker,
+  isStandalonePWA,
 } from './firebase';
+import { usePWAInstall } from './hooks/usePWAInstall';
+import { updateAppBadge, clearAppBadge } from './utils/appBadge';
 
 const STORAGE_KEY_AUTH = 'maks_squash_current_user_v5';
 const STORAGE_KEY_MEMBERS_CACHE = 'maks_squash_members_cache_v1';
@@ -107,12 +107,20 @@ export default function App() {
   const [isCheerModalOpen, setIsCheerModalOpen] = useState(false);
   const [isAddHonorPhotoModalOpen, setIsAddHonorPhotoModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [isPushPromptOpen, setIsPushPromptOpen] = useState(false);
-  const [pushSubscribed, setPushSubscribed] = useState<boolean>(() => {
-    return (
-      getNotificationPermission() === 'granted' ||
-      localStorage.getItem('maks_push_subscribed') === 'true'
-    );
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+
+  // PWA Installation Hook for PC & Mobile
+  const { isInstalled: isPWAInstalled } = usePWAInstall();
+
+  // Read Notice Tracker: track read post IDs in localStorage to calculate unread badge count
+  const [readPostIds, setReadPostIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('maks_read_post_ids_v1');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    return [];
   });
 
   const [lightboxData, setLightboxData] = useState<{
@@ -125,18 +133,33 @@ export default function App() {
     title: '',
   });
 
-  // Automatically prompt for push notifications once after login/arrival if default permission
-  useEffect(() => {
-    registerPushServiceWorker();
+  // Calculate Unread Notice Count
+  const unreadCount = posts.filter((p) => !readPostIds.includes(p.id)).length;
 
-    const hasPrompted = sessionStorage.getItem('maks_push_prompted');
-    if (!hasPrompted && getNotificationPermission() === 'default') {
-      const timer = setTimeout(() => {
-        setIsPushPromptOpen(true);
-        sessionStorage.setItem('maks_push_prompted', 'true');
-      }, 2500);
-      return () => clearTimeout(timer);
+  // Sync Unread Count with Desktop/Mobile App Icon Badging & Favicon
+  useEffect(() => {
+    updateAppBadge(unreadCount);
+  }, [unreadCount]);
+
+  // Mark all current posts as read when user visits or browses the feed
+  useEffect(() => {
+    if (currentTab === 'feed' && posts.length > 0) {
+      const allIds = posts.map((p) => p.id);
+      const isDifferent = allIds.some((id) => !readPostIds.includes(id));
+      if (isDifferent) {
+        setReadPostIds(allIds);
+        try {
+          localStorage.setItem('maks_read_post_ids_v1', JSON.stringify(allIds));
+        } catch (e) {
+          // ignore
+        }
+      }
     }
+  }, [currentTab, posts, readPostIds]);
+
+  // Register PWA Service Worker for offline asset caching & icon badging
+  useEffect(() => {
+    registerPWAServiceWorker();
   }, []);
 
   // Track latest state for fallback offline / bulk sync
@@ -197,7 +220,7 @@ export default function App() {
       unsubscribeMembers();
       unsubscribePosts();
     };
-  }, []);
+  }, [currentUser?.id]);
 
   const selectedMember =
     members.find((m) => m.id === selectedMemberId) || members[0] || INITIAL_MEMBERS[0];
@@ -317,54 +340,6 @@ export default function App() {
     try {
       setIsSyncing(true);
       await savePostToFirestore(newPost);
-
-      // Trigger Web Push Notification broadcast to all subscribed members
-      if (sendPush) {
-        const pushTitle =
-          newPost.category === 'awards'
-            ? `🏆 [MAKS 대회수상] ${newPost.authorName}님 새 소식!`
-            : newPost.category === 'match'
-            ? `🔥 [MAKS 경기결과] ${newPost.authorName}님 매치 결과!`
-            : `📢 [MAKS 클럽공지] ${newPost.authorName}님의 새 공지사항`;
-
-        const pushBody = newPost.awardsDetail
-          ? `${newPost.awardsDetail} - ${newPost.caption}`
-          : newPost.setScore
-          ? `${newPost.setScore} | ${newPost.location} - ${newPost.caption}`
-          : newPost.caption;
-
-        // 1. Send push to backend proxy
-        fetch('/api/push/broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: pushTitle,
-            body: pushBody,
-            category: newPost.category,
-            postId: newPost.id,
-            senderName: newPost.authorName,
-          }),
-        }).catch((e) => console.warn('Push broadcast API call non-critical:', e));
-
-        // 2. Log push broadcast event to Firestore
-        logPushBroadcast({
-          id: `log-${Date.now()}`,
-          title: pushTitle,
-          body: pushBody,
-          senderName: newPost.authorName,
-          sentAt: new Date().toISOString(),
-          targetCount: members.length,
-          category: newPost.category,
-          postId: newPost.id,
-        }).catch((e) => console.warn('Log push broadcast error:', e));
-
-        // 3. Immediately display banner push notification in browser
-        displayLocalPushNotification(pushTitle, {
-          body: pushBody,
-          url: '/',
-          tag: `post-${newPost.id}`,
-        });
-      }
     } catch (err) {
       console.error('Failed to save post to cloud', err);
       setPosts((prev) => [newPost, ...prev]);
@@ -587,8 +562,8 @@ export default function App() {
           onSyncNow={handleForceCloudSync}
           isSyncing={isSyncing}
           cloudConnected={cloudConnected}
-          pushSubscribed={pushSubscribed}
-          onOpenPushPrompt={() => setIsPushPromptOpen(true)}
+          unreadCount={unreadCount}
+          onOpenInstallModal={() => setIsInstallModalOpen(true)}
         />
 
         {/* Tab Views */}
@@ -597,8 +572,8 @@ export default function App() {
             <FeedView
               posts={posts}
               members={members}
-              pushSubscribed={pushSubscribed}
-              onOpenPushPrompt={() => setIsPushPromptOpen(true)}
+              isPWAInstalled={isPWAInstalled}
+              onOpenInstallModal={() => setIsInstallModalOpen(true)}
               onOpenCreatePost={() => setIsCreatePostOpen(true)}
               onToggleNiceShot={handleToggleNiceShot}
               onToggleBookmark={handleToggleBookmark}
@@ -672,6 +647,7 @@ export default function App() {
           currentTab={currentTab}
           onTabChange={setCurrentTab}
           currentUser={currentUser}
+          unreadCount={unreadCount}
         />
       </main>
 
@@ -744,14 +720,10 @@ export default function App() {
         />
       )}
 
-      {/* Web Push Notification Opt-in Prompt Modal */}
-      <PushNotificationPrompt
-        isOpen={isPushPromptOpen}
-        currentUser={currentUser}
-        onClose={() => setIsPushPromptOpen(false)}
-        onSubscribed={(token) => {
-          setPushSubscribed(true);
-        }}
+      {/* PC & Mobile Desktop Shortcut PWA Install Modal */}
+      <PWAInstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
       />
 
       {/* Auth Gate (Login/Register) */}

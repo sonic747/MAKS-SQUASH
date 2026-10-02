@@ -9,13 +9,11 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { SquashMember, FeedPost, ClubPushToken, ClubPushLog } from '../types';
+import { SquashMember, FeedPost } from '../types';
 import { INITIAL_MEMBERS } from '../data/initialData';
 
 const MEMBERS_COLLECTION = 'club_members';
 const POSTS_COLLECTION = 'club_posts';
-const TOKENS_COLLECTION = 'club_push_tokens';
-const PUSH_LOGS_COLLECTION = 'club_push_logs';
 const META_DOC = 'club_metadata';
 
 /**
@@ -61,11 +59,11 @@ export function subscribeToMembers(
         return a.name.localeCompare(b.name, 'ko');
       });
 
-      // Immediately cache to localStorage for 0-latency instant hydration on next reload
+      // Cache to localStorage for 0-latency instant hydration
       try {
         localStorage.setItem('maks_squash_members_cache_v1', JSON.stringify(members));
       } catch (e) {
-        // quota ignore
+        // ignore
       }
 
       onUpdate(members);
@@ -78,7 +76,7 @@ export function subscribeToMembers(
 }
 
 /**
- * Real-time listener for Feed Posts collection.
+ * Real-time listener for Posts collection
  */
 export function subscribeToPosts(
   onUpdate: (posts: FeedPost[]) => void,
@@ -101,7 +99,7 @@ export function subscribeToPosts(
       try {
         localStorage.setItem('maks_squash_posts_cache_v1', JSON.stringify(posts));
       } catch (e) {
-        // quota ignore
+        // ignore
       }
 
       onUpdate(posts);
@@ -111,58 +109,6 @@ export function subscribeToPosts(
       if (onError) onError(err);
     }
   );
-}
-
-/**
- * Real-time listener for registered push notification tokens
- */
-export function subscribeToPushTokens(
-  onUpdate: (tokens: ClubPushToken[]) => void,
-  onError?: (error: Error) => void
-): () => void {
-  const tokensRef = collection(db, TOKENS_COLLECTION);
-  return onSnapshot(
-    tokensRef,
-    (snapshot) => {
-      const tokens: ClubPushToken[] = [];
-      snapshot.forEach((d) => tokens.push(d.data() as ClubPushToken));
-      onUpdate(tokens);
-    },
-    (err) => {
-      console.error('Firestore subscribeToPushTokens error:', err);
-      if (onError) onError(err);
-    }
-  );
-}
-
-/**
- * Save / Register device FCM push token into Firestore
- */
-export async function savePushTokenToFirestore(pushToken: ClubPushToken): Promise<void> {
-  const tokenDoc = doc(db, TOKENS_COLLECTION, pushToken.token);
-  await setDoc(tokenDoc, JSON.parse(JSON.stringify(pushToken)), { merge: true });
-
-  // Also update member's own record with token & pushEnabled flag
-  if (pushToken.memberId) {
-    const memberDoc = doc(db, MEMBERS_COLLECTION, pushToken.memberId);
-    await setDoc(
-      memberDoc,
-      {
-        fcmToken: pushToken.token,
-        pushEnabled: true,
-        pushSubscribedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-  }
-}
-
-/**
- * Record a push broadcast log in Firestore
- */
-export async function logPushBroadcast(log: ClubPushLog): Promise<void> {
-  const logDoc = doc(db, PUSH_LOGS_COLLECTION, log.id);
-  await setDoc(logDoc, JSON.parse(JSON.stringify(log)), { merge: true });
 }
 
 /**

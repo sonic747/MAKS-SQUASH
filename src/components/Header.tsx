@@ -1,7 +1,7 @@
 import React from 'react';
 import { MaksLogo } from './MaksLogo';
 import { TabType, SquashMember } from '../types';
-import { LogOut, RefreshCw, CloudCheck, Cloud } from 'lucide-react';
+import { LogOut, RefreshCw, Download, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   currentTab: TabType;
@@ -10,8 +10,8 @@ interface HeaderProps {
   cloudConnected?: boolean;
   currentUser?: SquashMember | null;
   selectedMember?: SquashMember;
-  pushSubscribed?: boolean;
-  onOpenPushPrompt?: () => void;
+  unreadCount?: number;
+  onOpenInstallModal?: () => void;
   onLogout?: () => void;
   onOpenGate?: () => void;
   onSyncNow?: () => void;
@@ -24,8 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   isSyncing,
   cloudConnected = true,
   currentUser,
-  pushSubscribed,
-  onOpenPushPrompt,
+  unreadCount = 0,
+  onOpenInstallModal,
   onLogout,
   onSyncNow,
   onManualSync,
@@ -53,19 +53,38 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 bg-[#0f1118]/95 backdrop-blur-md border-b border-white/[0.08] px-3.5 py-2">
       <div className="flex items-center justify-between gap-3">
-        {/* Left: Logo and Active Tab Name */}
+        {/* Left: Logo and Active Tab Name with Badging indication */}
         <div className="flex items-center gap-2.5 min-w-0">
           <MaksLogo size="sm" />
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-gray-400 text-xs hidden sm:inline">|</span>
-            <span className="text-white text-xs font-chivo font-black tracking-wide truncate">
-              {getTabTitle()}
+            <span className="text-white text-xs font-chivo font-black tracking-wide truncate flex items-center gap-1.5">
+              <span>{getTabTitle()}</span>
+              {unreadCount > 0 && currentTab === 'feed' && (
+                <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                  N {unreadCount}
+                </span>
+              )}
             </span>
           </div>
         </div>
 
-        {/* Right Action Icons: Cloud Realtime Badge, Sync Button, Current User & Logout */}
+        {/* Right Action Icons: Install Shortcut Button, Cloud Sync, Current User & Logout */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* PC / Mobile Desktop Shortcut Creator Button */}
+          {onOpenInstallModal && (
+            <button
+              onClick={onOpenInstallModal}
+              title="PC 및 스마트폰 바탕화면에 MAKS 단축아이콘 생성"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f5c200]/15 hover:bg-[#f5c200]/25 border border-[#f5c200]/40 text-[#f5c200] text-xs font-chivo font-black transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <Download size={13} strokeWidth={2.5} />
+              <span className="text-[11px]">
+                <strong className="text-white">MAKS</strong> 아이콘 설치
+              </span>
+            </button>
+          )}
+
           {/* Real-time Cloud Status */}
           <div
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-chivo font-bold border transition-colors ${
@@ -82,24 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
             />
             <span className="hidden xs:inline">실시간 연동</span>
           </div>
-
-          {/* Web Push (Google FCM) Notification Icon */}
-          {onOpenPushPrompt && (
-            <button
-              onClick={onOpenPushPrompt}
-              title={pushSubscribed ? '푸시 알림 구독 중 (클릭 시 상태 확인)' : '구글 FCM 푸시 알림 신청하기'}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-chivo font-bold transition-all cursor-pointer ${
-                pushSubscribed
-                  ? 'bg-[#f5c200]/15 border-[#f5c200]/40 text-[#f5c200]'
-                  : 'bg-[#161822] hover:bg-[#1e222d] border-white/10 text-gray-300 hover:text-white'
-              }`}
-            >
-              <span className="text-xs">🔔</span>
-              <span className="text-[10px] hidden sm:inline">
-                {pushSubscribed ? '푸시 ON' : '푸시 알림'}
-              </span>
-            </button>
-          )}
 
           {/* Sync Now Button */}
           {handleSync && (

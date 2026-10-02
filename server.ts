@@ -127,70 +127,7 @@ app.post('/api/members', (req: Request, res: Response) => {
   res.json({ success: true, count: members.length });
 });
 
-// 4. Push Notification Endpoints
-const PUSH_TOKENS_FILE = path.resolve(process.cwd(), 'src/data/push_tokens.json');
-const PUSH_LOGS_FILE = path.resolve(process.cwd(), 'src/data/push_logs.json');
-
-app.get('/api/push/tokens', (req: Request, res: Response) => {
-  const tokens = readJsonFile<any[]>(PUSH_TOKENS_FILE, []);
-  res.json({ count: tokens.length, tokens });
-});
-
-app.post('/api/push/register', (req: Request, res: Response) => {
-  const { token, memberId, memberName, role, platform } = req.body;
-  if (!token) {
-    res.status(400).json({ error: 'Token is required' });
-    return;
-  }
-  const tokens = readJsonFile<any[]>(PUSH_TOKENS_FILE, []);
-  const existingIdx = tokens.findIndex((t) => t.token === token || (t.memberId && t.memberId === memberId));
-  const newRecord = {
-    token,
-    memberId: memberId || 'anonymous',
-    memberName: memberName || '클럽 회원',
-    role: role || 'member',
-    platform: platform || 'unknown',
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (existingIdx >= 0) {
-    tokens[existingIdx] = { ...tokens[existingIdx], ...newRecord };
-  } else {
-    tokens.push(newRecord);
-  }
-
-  writeJsonFile(PUSH_TOKENS_FILE, tokens);
-  res.json({ success: true, totalSubscribers: tokens.length });
-});
-
-app.post('/api/push/broadcast', (req: Request, res: Response) => {
-  const { title, body, category, postId, senderName } = req.body;
-  const tokens = readJsonFile<any[]>(PUSH_TOKENS_FILE, []);
-  const logs = readJsonFile<any[]>(PUSH_LOGS_FILE, []);
-
-  const pushLog = {
-    id: `log-${Date.now()}`,
-    title: title || '[MAKS SQUASH] 클럽 새로운 공지',
-    body: body || '새로운 클럽 소식이 등록되었습니다.',
-    category: category || 'all',
-    postId: postId || '',
-    senderName: senderName || '최고 관리자',
-    sentAt: new Date().toISOString(),
-    recipientCount: tokens.length,
-  };
-
-  logs.unshift(pushLog);
-  writeJsonFile(PUSH_LOGS_FILE, logs.slice(0, 100)); // keep last 100 logs
-
-  console.log(`[Push Notification Broadcast] Sent to ${tokens.length} subscriber devices: "${pushLog.title}"`);
-  res.json({
-    success: true,
-    sentTo: tokens.length,
-    log: pushLog,
-  });
-});
-
-// 5. Vite middleware in dev or static files in production
+// 4. Vite middleware in dev or static files in production
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

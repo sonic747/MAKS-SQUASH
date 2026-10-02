@@ -187,19 +187,20 @@ export const BackupView: React.FC<BackupViewProps> = ({
       </div>
 
       {/* Web Push (Google FCM) Monitoring & Broadcast Console (Admin) */}
+      {/* MAKS App Shortcut & Badging Status */}
       <div className="rounded-xl bg-[#161822] border border-[#f5c200]/30 p-4 space-y-3.5 shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-[#f5c200]/15 border border-[#f5c200]/30 flex items-center justify-center text-[#f5c200]">
-              <span className="text-base">🔔</span>
+              <span className="text-base">📱</span>
             </div>
             <div>
               <h3 className="font-chivo font-black text-sm text-white flex items-center gap-1.5">
-                <span>구글 FCM 웹 푸시(Web Push) 알림 관리</span>
-                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[#f5c200] text-[9px] font-bold">100% 무료</span>
+                <span>MAKS 바탕화면 단축아이콘 & 새 공지 뱃지 관리</span>
+                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[#f5c200] text-[9px] font-bold">PWA</span>
               </h3>
               <p className="text-[11px] text-gray-400">
-                회원 브라우저에 등록된 FCM 푸시 토큰 및 발송 현황
+                PC 바탕화면/작업표시줄 및 스마트폰 홈 화면 단축아이콘 연동 현황
               </p>
             </div>
           </div>
@@ -207,49 +208,17 @@ export const BackupView: React.FC<BackupViewProps> = ({
 
         <div className="p-3 rounded-lg bg-[#11131a] border border-white/5 space-y-2 text-xs text-gray-300">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">동작 방식</span>
-            <span className="font-chivo font-bold text-white">회원 접속/가입 시 권한 허용 ➔ 브라우저 고유 FCM 토큰 DB 저장</span>
+            <span className="text-gray-400">단축아이콘 명칭</span>
+            <span className="font-chivo font-bold text-white">MAKS</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">공지 작성 시</span>
-            <span className="font-chivo font-bold text-[#f5c200]">가입된 모든 회원 스마트폰/PC 상단에 카카오톡 스타일 배너 즉시 발송</span>
+            <span className="text-gray-400">읽지 않은 공지 수량 뱃지</span>
+            <span className="font-chivo font-bold text-[#f5c200]">아이콘 우측 상단 빨간색 숫자(Badging API) 및 탭 타이틀 자동 표기</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">비용 & 한도</span>
-            <span className="font-chivo font-bold text-emerald-400">완전 무료 • 발송 건수 무제한 • 비즈니스 인증 불필요</span>
+            <span className="text-gray-400">설치 방식</span>
+            <span className="font-chivo font-bold text-emerald-400">앱스토어 없이 1클릭 홈 화면 생성 (iOS Safari & Chrome PWA)</span>
           </div>
-        </div>
-
-        <div className="pt-1 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await fetch('/api/push/broadcast', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    title: '⚡ [MAKS SQUASH] 관리자 테스트 푸시 알림',
-                    body: '구글 FCM 웹 푸시 알림이 정상적으로 연동되어 있습니다. 공지 등록 시 회원들에게 즉시 배너가 발송됩니다.',
-                    category: 'all',
-                    senderName: '시스템 관리자',
-                  }),
-                });
-                const data = await res.json();
-                import('../firebase').then(({ displayLocalPushNotification }) => {
-                  displayLocalPushNotification('⚡ [MAKS SQUASH] 관리자 테스트 푸시 알림', {
-                    body: '구글 FCM 웹 푸시 알림이 정상 동작합니다! (화면 상단 배너 알림)',
-                  });
-                });
-                alert(`전체 구독 기기로 테스트 푸시 알림이 전송되었습니다.`);
-              } catch (e: any) {
-                alert(`테스트 푸시 발송 실패: ${e?.message}`);
-              }
-            }}
-            className="w-full py-2.5 px-3 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs flex items-center justify-center gap-2 shadow transition-all cursor-pointer"
-          >
-            <span>전체 회원 테스트 푸시 알림 즉시 발송</span>
-          </button>
         </div>
       </div>
     </div>
