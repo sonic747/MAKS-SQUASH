@@ -106,23 +106,33 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
           </p>
         </div>
 
-        {/* Feature Checkpoints */}
-        <div className="p-3 rounded-xl bg-[#11131a] border border-white/10 space-y-2 text-xs text-gray-300 font-chivo">
-          <div className="flex items-center gap-2">
-            <Check size={14} className="text-emerald-400 shrink-0" />
-            <span>브라우저 팝업에서 <strong className="text-white">"허용"</strong>을 누르면 즉시 연동</span>
+        {/* 1-Tap Subscription Box */}
+        <div className="p-3.5 rounded-xl bg-[#11131a] border border-[#f5c200]/30 space-y-2.5">
+          <div className="flex items-center gap-2.5 text-xs text-white font-bold font-chivo">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#f5c200] text-[#0f1118] text-xs font-black shrink-0">
+              1
+            </span>
+            <span>아래 노란색 [원클릭 알림 켜기] 버튼을 누르세요.</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Check size={14} className="text-emerald-400 shrink-0" />
-            <span>앱을 닫고 있어도 새 공지 등록 시 배너 자동 알림</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check size={14} className="text-emerald-400 shrink-0" />
-            <span>비즈니스 인증 없이 회원 가입 즉시 무료 제공</span>
+          <div className="flex items-center gap-2.5 text-xs text-gray-300 font-chivo">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10 text-white text-xs font-bold shrink-0">
+              2
+            </span>
+            <span>브라우저 팝업이 뜨면 <strong className="text-[#f5c200] font-bold">"허용"</strong>만 누르면 즉시 완료!</span>
           </div>
         </div>
 
-        {/* Error message / OS Specific Help */}
+        {/* Success message */}
+        {status === 'success' && (
+          <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-200 text-xs flex items-center gap-2.5 font-chivo font-bold animate-in fade-in">
+            <div className="w-6 h-6 rounded-full bg-emerald-500 text-[#0f1118] flex items-center justify-center shrink-0">
+              <Check size={16} strokeWidth={3} />
+            </div>
+            <span>푸시 알림이 정상적으로 켜졌습니다! (테스트 알림 발송됨)</span>
+          </div>
+        )}
+
+        {/* Guidance / Error message */}
         {status === 'error' && (
           <div className="p-3 rounded-xl bg-red-950/60 border border-red-500/40 text-red-200 text-xs space-y-2">
             <div className="flex items-start gap-2">
@@ -130,59 +140,40 @@ export const PushNotificationPrompt: React.FC<PushNotificationPromptProps> = ({
               <span className="font-semibold leading-relaxed">{errorMessage}</span>
             </div>
 
-            {/* In-App / KakaoTalk Guide */}
+            {/* Quick helper for KakaoTalk */}
             {errorMessage.includes('카카오톡') && (
-              <div className="p-2.5 rounded-lg bg-[#0c0e15] border border-white/10 text-[11px] text-gray-300 space-y-1">
-                <div className="font-bold text-[#f5c200]">💡 카카오톡/인앱에서 외부 브라우저로 여는 법</div>
-                <div>화면 우측 하단 <strong className="text-white">점 세개(⋮)</strong> 또는 공유 버튼 ➔ <strong className="text-white">[기본 브라우저로 열기]</strong> (크롬/사파리)를 누르시면 푸시 알림이 즉시 활성화됩니다.</div>
-              </div>
-            )}
-
-            {/* iOS Safari Guide */}
-            {errorMessage.includes('아이폰') && (
-              <div className="p-2.5 rounded-lg bg-[#0c0e15] border border-white/10 text-[11px] text-gray-300 space-y-1">
-                <div className="font-bold text-[#f5c200]">📱 아이폰(iOS Safari) 푸시 알림 허용 방법</div>
-                <div>1. Safari 하단 중앙 <strong className="text-white">[공유 아이콘(↑)]</strong> 터치</div>
-                <div>2. 메뉴를 내려 <strong className="text-white">[홈 화면에 추가]</strong> 터치</div>
-                <div>3. 홈 화면에 생성된 <strong className="text-[#f5c200]">MAKS 스쿼시 앱</strong> 아이콘을 열면 푸시 알림이 정상 작동합니다.</div>
+              <div className="p-2.5 rounded-lg bg-[#0c0e15] border border-white/10 text-[11px] text-gray-300">
+                👉 우측 하단 <strong className="text-white">점 세개(⋮)</strong> ➔ <strong className="text-[#f5c200]">[다른 브라우저로 열기]</strong>를 누르시면 1초 만에 알림이 켜집니다!
               </div>
             )}
           </div>
         )}
 
-        {/* Success message */}
-        {status === 'success' && (
-          <div className="p-2.5 rounded-lg bg-emerald-950/50 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 font-chivo font-bold">
-            <Check size={15} className="shrink-0" />
-            <span>푸시 알림 구독이 완료되었습니다! (테스트 알림 발송됨)</span>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="pt-2 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-3 px-4 rounded-xl bg-[#11131a] hover:bg-[#1a1c24] border border-white/10 text-xs font-chivo font-bold text-gray-400 hover:text-white cursor-pointer transition-colors"
-          >
-            다음에 하기
-          </button>
+        {/* Actions: Big, clear 1-click button */}
+        <div className="pt-2 flex flex-col sm:flex-row gap-2">
           <button
             type="button"
             onClick={handleEnablePush}
             disabled={loading || status === 'success'}
-            className="flex-2 py-3 px-4 rounded-xl bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm shadow-[0_4px_16px_rgba(245,194,0,0.3)] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+            className="w-full py-3.5 px-4 rounded-xl bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm shadow-[0_4px_20px_rgba(245,194,0,0.35)] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {loading ? (
-              <span>권한 확인 중...</span>
+              <span>연동 처리 중...</span>
             ) : status === 'success' ? (
               <span>연동 완료 ✓</span>
             ) : (
               <>
-                <Bell size={16} />
-                <span>알림 허용 및 연동하기</span>
+                <Bell size={18} strokeWidth={2.5} />
+                <span>원클릭 푸시 알림 켜기 (무료)</span>
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="py-2.5 px-3 rounded-xl bg-transparent hover:bg-white/5 text-xs font-chivo font-medium text-gray-400 hover:text-white cursor-pointer transition-colors text-center"
+          >
+            나중에 하기
           </button>
         </div>
       </div>

@@ -36,15 +36,48 @@ import {
 } from './firebase';
 
 const STORAGE_KEY_AUTH = 'maks_squash_current_user_v5';
+const STORAGE_KEY_MEMBERS_CACHE = 'maks_squash_members_cache_v1';
+const STORAGE_KEY_POSTS_CACHE = 'maks_squash_posts_cache_v1';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<TabType>('feed');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [cloudConnected, setCloudConnected] = useState<boolean>(true);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(() => {
+    // If we have cached data, we can render immediately without blocking loading
+    return !localStorage.getItem(STORAGE_KEY_MEMBERS_CACHE);
+  });
 
-  // Members & Posts State (Real-time Firestore Authority)
-  const [members, setMembers] = useState<SquashMember[]>(INITIAL_MEMBERS);
-  const [posts, setPosts] = useState<FeedPost[]>([]);
+  // Members & Posts State: Initialize from actual cached Firestore data, never flash stale INITIAL_MEMBERS
+  const [members, setMembers] = useState<SquashMember[]>(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY_MEMBERS_CACHE);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed reading members cache:', e);
+    }
+    return [];
+  });
+
+  const [posts, setPosts] = useState<FeedPost[]>(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY_POSTS_CACHE);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed reading posts cache:', e);
+    }
+    return [];
+  });
 
   // Current Logged-in User
   const [currentUser, setCurrentUser] = useState<SquashMember | null>(() => {
@@ -126,6 +159,7 @@ export default function App() {
         setMembers(updatedMembers);
         setCloudConnected(true);
         setIsSyncing(false);
+        setIsInitialLoading(false);
 
         // Keep current logged-in user in sync with updated data if changed
         if (currentUser) {
@@ -536,6 +570,7 @@ export default function App() {
         members={members}
         maxCapacity={maxCapacity}
         selectedMemberId={selectedMemberId}
+        isLoading={isInitialLoading}
         onSelectMember={handleSelectMember}
         onAddMemberClick={() => setCurrentTab('register')}
       />
@@ -562,6 +597,8 @@ export default function App() {
             <FeedView
               posts={posts}
               members={members}
+              pushSubscribed={pushSubscribed}
+              onOpenPushPrompt={() => setIsPushPromptOpen(true)}
               onOpenCreatePost={() => setIsCreatePostOpen(true)}
               onToggleNiceShot={handleToggleNiceShot}
               onToggleBookmark={handleToggleBookmark}

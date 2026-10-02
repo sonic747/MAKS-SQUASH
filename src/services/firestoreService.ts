@@ -28,30 +28,30 @@ export function subscribeToMembers(
   const membersRef = collection(db, MEMBERS_COLLECTION);
   return onSnapshot(
     membersRef,
-    async (snapshot) => {
-      const metaDocRef = doc(db, META_DOC, 'system');
-      const metaSnap = await getDoc(metaDocRef);
-      const isInitialized = metaSnap.exists() && metaSnap.data()?.membersInitialized;
-
+    (snapshot) => {
       if (snapshot.empty) {
-        if (!isInitialized) {
-          // If Firestore is brand new empty, seed initial members once
-          await seedInitialData();
-          return;
-        } else {
-          onUpdate([]);
-          return;
-        }
-      }
-
-      if (!isInitialized) {
-        setDoc(metaDocRef, { membersInitialized: true }, { merge: true }).catch(() => {});
+        // Only if database is genuinely empty, check metadata asynchronously
+        const metaDocRef = doc(db, META_DOC, 'system');
+        getDoc(metaDocRef)
+          .then((metaSnap) => {
+            const isInitialized = metaSnap.exists() && metaSnap.data()?.membersInitialized;
+            if (!isInitialized) {
+              seedInitialData().catch(() => {});
+            } else {
+              onUpdate([]);
+            }
+          })
+          .catch(() => {
+            onUpdate([]);
+          });
+        return;
       }
 
       const members: SquashMember[] = [];
       snapshot.forEach((docSnap) => {
         members.push(docSnap.data() as SquashMember);
       });
+
       // Sort members (admin & captain first, then name)
       members.sort((a, b) => {
         if (a.role === 'admin') return -1;
@@ -60,6 +60,14 @@ export function subscribeToMembers(
         if (b.role === 'captain') return 1;
         return a.name.localeCompare(b.name, 'ko');
       });
+
+      // Immediately cache to localStorage for 0-latency instant hydration on next reload
+      try {
+        localStorage.setItem('maks_squash_members_cache_v1', JSON.stringify(members));
+      } catch (e) {
+        // quota ignore
+      }
+
       onUpdate(members);
     },
     (err) => {
@@ -89,6 +97,13 @@ export function subscribeToPosts(
       snapshot.forEach((docSnap) => {
         posts.push(docSnap.data() as FeedPost);
       });
+
+      try {
+        localStorage.setItem('maks_squash_posts_cache_v1', JSON.stringify(posts));
+      } catch (e) {
+        // quota ignore
+      }
+
       onUpdate(posts);
     },
     (err) => {

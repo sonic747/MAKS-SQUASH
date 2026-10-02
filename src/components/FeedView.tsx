@@ -6,6 +6,8 @@ import { DeleteConfirmModal } from './DeleteConfirmModal';
 interface FeedViewProps {
   posts: FeedPost[];
   members: SquashMember[];
+  pushSubscribed?: boolean;
+  onOpenPushPrompt?: () => void;
   onOpenCreatePost: () => void;
   onToggleNiceShot: (postId: string) => void;
   onToggleBookmark: (postId: string) => void;
@@ -19,6 +21,8 @@ interface FeedViewProps {
 export const FeedView: React.FC<FeedViewProps> = ({
   posts,
   members,
+  pushSubscribed,
+  onOpenPushPrompt,
   onOpenCreatePost,
   onToggleNiceShot,
   onToggleBookmark,
@@ -68,6 +72,33 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <Camera size={20} strokeWidth={2.5} />
         <span>공지 작성 / 사진 업로드</span>
       </button>
+
+      {/* 1-Click Push Notification Enable Button Banner (When not subscribed) */}
+      {!pushSubscribed && onOpenPushPrompt && (
+        <div className="p-3 rounded-xl bg-gradient-to-r from-[#1d2232] to-[#161822] border border-[#f5c200]/30 flex items-center justify-between gap-3 shadow-md animate-in fade-in">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-[#f5c200]/15 border border-[#f5c200]/30 flex items-center justify-center text-[#f5c200] shrink-0 text-sm">
+              🔔
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                <span>클럽 실시간 공지 푸시 알림</span>
+                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[#f5c200] text-[9px] font-bold shrink-0">무료</span>
+              </div>
+              <div className="text-[11px] text-gray-400 truncate">
+                버튼 한 번만 누르면 스마트폰 상단 배너로 즉시 도착
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenPushPrompt}
+            className="px-3 py-1.5 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shrink-0 cursor-pointer shadow active:scale-95 transition-all"
+          >
+            알림 켜기
+          </button>
+        </div>
+      )}
 
       {/* Filter Category Pills: 전체 공지, 대회수상, 게임/매치 */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
