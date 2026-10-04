@@ -35,11 +35,6 @@ export const Navigation: React.FC<NavigationProps> = ({
       icon: <Trophy size={19} strokeWidth={2.2} />,
     },
     {
-      id: 'register',
-      label: '회원가입',
-      icon: <UserPlus size={19} strokeWidth={2.2} />,
-    },
-    {
       id: 'backup',
       label: isAdmin ? '백업관리' : '백업(관리자)',
       icon: isAdmin ? (

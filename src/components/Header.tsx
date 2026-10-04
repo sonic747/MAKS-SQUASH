@@ -73,21 +73,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Action Icons: 회원가입, Cloud Sync, Current User & Logout */}
+        {/* Right Action Icons: Cloud Sync, Current User & Logout */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* 회원가입 Button */}
-          {onNavigateToRegister && (
-            <button
-              onClick={onNavigateToRegister}
-              title="신규 회원가입 창으로 이동"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f5c200]/15 hover:bg-[#f5c200]/25 border border-[#f5c200]/40 text-[#f5c200] text-xs font-chivo font-black transition-all cursor-pointer shadow-sm active:scale-95"
-            >
-              <UserPlus size={13} strokeWidth={2.5} />
-              <span className="text-[11px] whitespace-nowrap">
-                회원가입
-              </span>
-            </button>
-          )}
 
           {/* Real-time Cloud Status */}
           <div

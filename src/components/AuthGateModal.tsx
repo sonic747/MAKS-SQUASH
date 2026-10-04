@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UserCheck, ShieldCheck, ArrowRight, UserPlus, Lock, LogIn, Camera } from 'lucide-react';
+import { UserCheck, ShieldCheck, ArrowRight, UserPlus, Lock, LogIn, Camera, Download } from 'lucide-react';
 import { SquashMember, BallRating } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
 
@@ -8,6 +8,7 @@ interface AuthGateModalProps {
   members: SquashMember[];
   onLogin: (member: SquashMember) => void;
   onRegister: (newMember: SquashMember) => void;
+  onOpenInstallModal?: () => void;
 }
 
 export const AuthGateModal: React.FC<AuthGateModalProps> = ({
@@ -15,6 +16,7 @@ export const AuthGateModal: React.FC<AuthGateModalProps> = ({
   members,
   onLogin,
   onRegister,
+  onOpenInstallModal,
 }) => {
   if (!isOpen) return null;
 
@@ -527,48 +529,26 @@ export const AuthGateModal: React.FC<AuthGateModalProps> = ({
                 </button>
               </form>
 
-              {/* Quick Select Member Chips for Easy Testing */}
-              <div className="pt-2 border-t border-white/[0.08]">
-                <span className="block text-[10px] font-chivo font-bold text-gray-400 mb-2 uppercase">
-                  등록된 회원 바로 선택하여 접속
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {members.map((m) => {
-                    const isAdm = m.username === 'admin' || m.role === 'admin';
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => onLogin(m)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-chivo font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                          isAdm
-                            ? 'bg-amber-500/20 border-amber-500/50 text-[#f5c200] hover:bg-amber-500/30'
-                            : 'bg-[#11131a] border-white/10 text-gray-300 hover:border-white/30'
-                        }`}
-                      >
-                        <img
-                          src={m.avatar}
-                          alt={m.name}
-                          className="w-4 h-4 rounded-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                        <span>{m.name}</span>
-                        {isAdm ? (
-                          <span className="text-[9px] bg-[#f5c200] text-black px-1 rounded font-black">
-                            ADMIN
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-gray-400">({m.roleLabel})</span>
-                        )}
-                      </button>
-                    );
-                  })}
+              {/* Desktop Shortcut Install Button on Logged-out Screen */}
+              {onOpenInstallModal && (
+                <div className="pt-3 border-t border-white/[0.08]">
+                  <button
+                    type="button"
+                    onClick={onOpenInstallModal}
+                    className="w-full py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#282d3c] border border-[#f5c200]/30 text-white text-xs font-chivo font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    <Download size={14} className="text-[#f5c200]" />
+                    <span>바탕화면에 MAKS 바로가기 아이콘 만들기</span>
+                  </button>
+                  <p className="text-[10px] text-gray-400 text-center mt-1.5">
+                    PC 바탕화면 및 스마트폰 홈 화면에 1초 만에 바로가기 아이콘을 생성할 수 있습니다.
+                  </p>
                 </div>
-              </div>
+              )}
             </div>
           )}
+          </div>
         </div>
       </div>
-    </div>
   );
 };

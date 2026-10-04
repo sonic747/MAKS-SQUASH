@@ -6,6 +6,7 @@ import { DeleteConfirmModal } from './DeleteConfirmModal';
 interface FeedViewProps {
   posts: FeedPost[];
   members: SquashMember[];
+  currentUser?: SquashMember | null;
   isPWAInstalled?: boolean;
   onOpenInstallModal?: () => void;
   onOpenCreatePost: () => void;
@@ -21,6 +22,7 @@ interface FeedViewProps {
 export const FeedView: React.FC<FeedViewProps> = ({
   posts,
   members,
+  currentUser,
   isPWAInstalled,
   onOpenInstallModal,
   onOpenCreatePost,
@@ -59,10 +61,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredPosts = posts.filter((post) => {
-    if (activeFilter === 'all') return true;
-    return post.category === activeFilter;
-  });
+  const filteredPosts = posts;
 
   const handleNiceShotClick = (postId: string) => {
     setSwingingPostId(postId);
@@ -132,41 +131,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
       )}
 
-      {/* Filter Category Pills: 전체 공지, 대회수상, 게임/매치 */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-        <button
-          onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold transition-all cursor-pointer ${
-            activeFilter === 'all'
-              ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
-              : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
-          }`}
-        >
-          #전체 공지
-        </button>
-        <button
-          onClick={() => setActiveFilter('awards')}
-          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold flex items-center gap-1 transition-all cursor-pointer ${
-            activeFilter === 'awards'
-              ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
-              : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
-          }`}
-        >
-          <span>🏆</span>
-          <span>#대회수상</span>
-        </button>
-        <button
-          onClick={() => setActiveFilter('match')}
-          className={`px-3 py-1.5 rounded-full text-xs font-chivo font-bold flex items-center gap-1 transition-all cursor-pointer ${
-            activeFilter === 'match'
-              ? 'bg-[#f5c200] text-[#0f1118] shadow-sm'
-              : 'bg-[#1a1c24] text-gray-300 border border-white/[0.08] hover:border-white/20'
-          }`}
-        >
-          <span>🔥</span>
-          <span>#오늘의게임</span>
-        </button>
-      </div>
+
 
       {/* Feed Cards or Empty State */}
       {filteredPosts.length === 0 ? (
@@ -242,43 +207,59 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   </div>
                 </div>
 
-                {/* Right menu */}
-                <div className="relative">
-                  <button
-                    onClick={() => setActiveMenuPostId(isMenuOpen ? null : post.id)}
-                    className="p-1.5 rounded-lg hover:bg-white/[0.06] text-gray-400 hover:text-white transition-colors"
-                  >
-                    <MoreVertical size={16} />
-                  </button>
+                {/* Right menu (본인 및 관리자만 수정/삭제 권한 부여) */}
+                {(() => {
+                  const isAdmin =
+                    currentUser?.username === 'admin' ||
+                    currentUser?.role === 'admin' ||
+                    currentUser?.isAdmin;
+                  const isAuthor =
+                    currentUser?.name === post.author ||
+                    currentUser?.username === post.author;
+                  const canManagePost = isAdmin || isAuthor;
 
-                  {isMenuOpen && (
-                    <div
-                      ref={menuRef}
-                      className="absolute right-0 top-8 z-20 w-36 rounded-xl bg-[#1e222d] border border-white/10 shadow-2xl py-1 text-xs text-gray-200"
-                    >
+                  if (!canManagePost) return null;
+
+                  return (
+                    <div className="relative">
                       <button
-                        onClick={() => {
-                          setActiveMenuPostId(null);
-                          onEditPost(post);
-                        }}
-                        className="w-full px-3 py-2 text-left hover:bg-white/[0.08] flex items-center gap-2 text-gray-200"
+                        onClick={() => setActiveMenuPostId(isMenuOpen ? null : post.id)}
+                        className="p-1.5 rounded-lg hover:bg-white/[0.06] text-gray-400 hover:text-white transition-colors cursor-pointer"
+                        title="게시글 관리"
                       >
-                        <Edit2 size={13} />
-                        <span>게시글 수정</span>
+                        <MoreVertical size={16} />
                       </button>
-                      <button
-                        onClick={() => {
-                          setActiveMenuPostId(null);
-                          setPostToDelete(post);
-                        }}
-                        className="w-full px-3 py-2 text-left hover:bg-red-500/20 flex items-center gap-2 text-red-400"
-                      >
-                        <Trash2 size={13} />
-                        <span>게시글 삭제</span>
-                      </button>
+
+                      {isMenuOpen && (
+                        <div
+                          ref={menuRef}
+                          className="absolute right-0 top-8 z-20 w-36 rounded-xl bg-[#1e222d] border border-white/10 shadow-2xl py-1 text-xs text-gray-200"
+                        >
+                          <button
+                            onClick={() => {
+                              setActiveMenuPostId(null);
+                              onEditPost(post);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-white/[0.08] flex items-center gap-2 text-gray-200 cursor-pointer"
+                          >
+                            <Edit2 size={13} />
+                            <span>게시글 수정</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveMenuPostId(null);
+                              setPostToDelete(post);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-red-500/20 flex items-center gap-2 text-red-400 cursor-pointer"
+                          >
+                            <Trash2 size={13} />
+                            <span>게시글 삭제</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
 
               {/* Post Image */}

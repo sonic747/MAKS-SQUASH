@@ -106,6 +106,7 @@ export default function App() {
   const [activeCommentPost, setActiveCommentPost] = useState<FeedPost | null>(null);
   const [isCheerModalOpen, setIsCheerModalOpen] = useState(false);
   const [isAddHonorPhotoModalOpen, setIsAddHonorPhotoModalOpen] = useState(false);
+  const [editingHonor, setEditingHonor] = useState<HonorItem | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
@@ -499,14 +500,64 @@ export default function App() {
     };
     const updated: SquashMember = {
       ...target,
-      trophiesCount: target.trophiesCount + 1,
-      honors: [newHonor, ...target.honors],
+      trophiesCount: (target.honors?.length || 0) + 1,
+      honors: [newHonor, ...(target.honors || [])],
     };
+
+    // 1. Optimistic state update immediately
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
+    if (currentUser?.id === memberId) {
+      setCurrentUser(updated);
+    }
+
     try {
       await saveMemberToFirestore(updated);
     } catch (err) {
       console.error('Failed to add honor', err);
-      setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
+    }
+  };
+
+  const handleUpdateHonor = async (memberId: string, updatedHonor: HonorItem) => {
+    const target = members.find((m) => m.id === memberId);
+    if (!target) return;
+    const updated: SquashMember = {
+      ...target,
+      honors: (target.honors || []).map((h) => (h.id === updatedHonor.id ? updatedHonor : h)),
+    };
+
+    // 1. Optimistic state update immediately
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
+    if (currentUser?.id === memberId) {
+      setCurrentUser(updated);
+    }
+
+    try {
+      await saveMemberToFirestore(updated);
+    } catch (err) {
+      console.error('Failed to update honor', err);
+    }
+  };
+
+  const handleDeleteHonor = async (memberId: string, honorId: string) => {
+    const target = members.find((m) => m.id === memberId);
+    if (!target) return;
+    const filteredHonors = (target.honors || []).filter((h) => h.id !== honorId);
+    const updated: SquashMember = {
+      ...target,
+      trophiesCount: filteredHonors.length,
+      honors: filteredHonors,
+    };
+
+    // 1. Optimistic state update immediately
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
+    if (currentUser?.id === memberId) {
+      setCurrentUser(updated);
+    }
+
+    try {
+      await saveMemberToFirestore(updated);
+    } catch (err) {
+      console.error('Failed to delete honor', err);
     }
   };
 
@@ -613,6 +664,7 @@ export default function App() {
             <FeedView
               posts={posts}
               members={members}
+              currentUser={currentUser}
               isPWAInstalled={isPWAInstalled}
               onOpenInstallModal={() => setIsInstallModalOpen(true)}
               onOpenCreatePost={() => setIsCreatePostOpen(true)}
@@ -651,7 +703,15 @@ export default function App() {
               currentUser={currentUser}
               onSelectMember={setSelectedMemberId}
               onOpenCheerModal={() => setIsCheerModalOpen(true)}
-              onOpenAddPhotoModal={() => setIsAddHonorPhotoModalOpen(true)}
+              onOpenAddPhotoModal={() => {
+                setEditingHonor(null);
+                setIsAddHonorPhotoModalOpen(true);
+              }}
+              onEditHonor={(honor) => {
+                setEditingHonor(honor);
+                setIsAddHonorPhotoModalOpen(true);
+              }}
+              onDeleteHonor={handleDeleteHonor}
               onOpenImageModal={(imageUrl, title) =>
                 setLightboxData({ isOpen: true, imageUrl, title })
               }
@@ -674,6 +734,7 @@ export default function App() {
           {currentTab === 'backup' && (
             <BackupView
               members={members}
+              posts={posts}
               maxCapacity={maxCapacity}
               onDownloadJson={handleDownloadJson}
               onImportJson={handleImportJson}
@@ -737,8 +798,14 @@ export default function App() {
         <AddHonorOrPhotoModal
           isOpen={isAddHonorPhotoModalOpen}
           member={selectedMember}
-          onClose={() => setIsAddHonorPhotoModalOpen(false)}
+          editingHonor={editingHonor}
+          onClose={() => {
+            setIsAddHonorPhotoModalOpen(false);
+            setEditingHonor(null);
+          }}
           onAddHonor={(memberId, honorData) => handleAddHonor(memberId, honorData)}
+          onUpdateHonor={(memberId, honor) => handleUpdateHonor(memberId, honor)}
+          onDeleteHonor={(memberId, honorId) => handleDeleteHonor(memberId, honorId)}
           onAddPhoto={(memberId, photoData) => handleAddPhoto(memberId, photoData)}
         />
       )}
@@ -774,6 +841,7 @@ export default function App() {
           members={members}
           onLogin={handleLogin}
           onRegister={handleRegisterFromGate}
+          onOpenInstallModal={() => setIsInstallModalOpen(true)}
         />
       )}
     </div>

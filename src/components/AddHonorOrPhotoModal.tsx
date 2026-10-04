@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { X, Trophy, Camera, Image, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Trophy, Camera, Image, Sparkles, Trash2 } from 'lucide-react';
 import { SquashMember, HonorItem, MemberPhoto } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
 
@@ -8,6 +8,9 @@ interface AddHonorOrPhotoModalProps {
   onClose: () => void;
   member: SquashMember;
   onAddHonor: (memberId: string, honor: Omit<HonorItem, 'id'>) => void;
+  onUpdateHonor?: (memberId: string, honor: HonorItem) => void;
+  onDeleteHonor?: (memberId: string, honorId: string) => void;
+  editingHonor?: HonorItem | null;
   onAddPhoto?: (memberId: string, photo: Omit<MemberPhoto, 'id'>) => void;
 }
 
@@ -16,6 +19,9 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
   onClose,
   member,
   onAddHonor,
+  onUpdateHonor,
+  onDeleteHonor,
+  editingHonor,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +34,24 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
   const [rankType, setRankType] = useState<'gold' | 'silver' | 'bronze'>('gold');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (editingHonor) {
+      setHonorTitle(editingHonor.title || '');
+      setOrganizer(editingHonor.organizer || '');
+      setRank(editingHonor.rank || '1위');
+      setRankBadge(editingHonor.rankBadge || 'CHAMPION');
+      setRankType(editingHonor.rankType || 'gold');
+      setImageUrl(editingHonor.imageUrl || '');
+    } else {
+      setHonorTitle('2024 경기도협회장배 스쿼시 대회');
+      setOrganizer('경기도스쿼시연맹 공인 • 개인전');
+      setRank('1위');
+      setRankBadge('CHAMPION');
+      setRankType('gold');
+      setImageUrl('');
+    }
+  }, [editingHonor, isOpen]);
 
   if (!isOpen) return null;
 
@@ -57,37 +81,70 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
 
   const handleHonorSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddHonor(member.id, {
-      title: honorTitle,
-      organizer,
-      rank,
-      rankBadge,
-      rankType,
-      date: new Date().toISOString().split('T')[0],
-      division: '일반부',
-      imageUrl: imageUrl || undefined,
-    });
+    if (editingHonor && onUpdateHonor) {
+      onUpdateHonor(member.id, {
+        ...editingHonor,
+        title: honorTitle,
+        organizer,
+        rank,
+        rankBadge,
+        rankType,
+        imageUrl: imageUrl || undefined,
+      });
+    } else {
+      onAddHonor(member.id, {
+        title: honorTitle,
+        organizer,
+        rank,
+        rankBadge,
+        rankType,
+        date: new Date().toISOString().split('T')[0],
+        division: '일반부',
+        imageUrl: imageUrl || undefined,
+      });
+    }
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (editingHonor && onDeleteHonor) {
+      if (confirm('이 시상 이력을 정말 삭제하시겠습니까?')) {
+        onDeleteHonor(member.id, editingHonor.id);
+        onClose();
+      }
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
       <div className="bg-[#161822] border border-white/[0.12] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in duration-200">
-        {/* Header: 시상 등록 */}
+        {/* Header: 시상 등록 / 시상 수정 */}
         <div className="px-4 py-3 bg-[#11131a] border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy size={18} className="text-[#f5c200]" />
             <h3 className="font-chivo font-black text-sm text-white">
-              {member.name} 님의 시상 등록
+              {member.name} 님의 {editingHonor ? '시상 이력 수정' : '시상 등록'}
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 rounded-md cursor-pointer transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            {editingHonor && onDeleteHonor && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="text-red-400 hover:text-red-300 p-1 rounded-md cursor-pointer transition-colors"
+                title="시상 이력 삭제"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-1 rounded-md cursor-pointer transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Form */}
@@ -184,7 +241,7 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#272b38] border border-white/15 text-xs font-chivo font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#272b38] border border-white/15 text-xs font-chivo font-bold text-gray-200 flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
                 <Image size={15} className="text-[#f5c200]" />
                 <span>사진선택</span>
@@ -192,7 +249,7 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
               <button
                 type="button"
                 onClick={() => cameraInputRef.current?.click()}
-                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#272b38] border border-white/15 text-xs font-chivo font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#272b38] border border-white/15 text-xs font-chivo font-bold text-gray-200 flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
                 <Camera size={15} className="text-emerald-400" />
                 <span>사진촬영</span>
@@ -248,7 +305,7 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
               type="submit"
               className="flex-1 py-3 px-3 rounded-xl bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
             >
-              시상 등록 완료
+              {editingHonor ? '수정 내용 저장' : '시상 등록 완료'}
             </button>
           </div>
         </form>

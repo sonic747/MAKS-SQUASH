@@ -173,50 +173,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
           </div>
 
-          {/* Category Tabs: 일반 공지 (기본), 대회/수상, 게임/매치 순서 */}
-          <div>
-            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
-              공지 분류 태그
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setCategory('all')}
-                className={`py-2.5 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  category === 'all'
-                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] shadow-md font-extrabold'
-                    : 'bg-[#11131a] text-gray-400 border-white/10 hover:text-gray-200'
-                }`}
-              >
-                <span>📢</span>
-                <span>일반 공지</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCategory('awards')}
-                className={`py-2.5 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  category === 'awards'
-                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] shadow-md font-extrabold'
-                    : 'bg-[#11131a] text-gray-400 border-white/10 hover:text-gray-200'
-                }`}
-              >
-                <span>🏆</span>
-                <span>대회/수상</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCategory('match')}
-                className={`py-2.5 text-xs font-chivo font-bold rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                  category === 'match'
-                    ? 'bg-[#f5c200] text-[#0f1118] border-[#f5c200] shadow-md font-extrabold'
-                    : 'bg-[#11131a] text-gray-400 border-white/10 hover:text-gray-200'
-                }`}
-              >
-                <span>🔥</span>
-                <span>게임/매치</span>
-              </button>
-            </div>
-          </div>
+
 
           {/* Photo Selection: 파일선택 & 사진촬영 버튼 (샘플 그림 완전 제거) */}
           <div>

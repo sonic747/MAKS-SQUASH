@@ -11,10 +11,11 @@ import {
   CloudCheck,
   Cloud,
 } from 'lucide-react';
-import { SquashMember } from '../types';
+import { SquashMember, FeedPost } from '../types';
 
 interface BackupViewProps {
   members: SquashMember[];
+  posts?: FeedPost[];
   maxCapacity: number;
   onDownloadJson: () => void;
   onImportJson: (jsonData: string) => boolean | Promise<boolean>;
@@ -24,6 +25,7 @@ interface BackupViewProps {
 
 export const BackupView: React.FC<BackupViewProps> = ({
   members,
+  posts = [],
   maxCapacity,
   onDownloadJson,
   onImportJson,
@@ -113,18 +115,24 @@ export const BackupView: React.FC<BackupViewProps> = ({
           </div>
         )}
 
-        {/* Status Stats */}
-        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/[0.08]">
+        {/* Status Stats: 모든 공지, 회원정보 연동 */}
+        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/[0.08]">
           <div className="p-2.5 rounded-lg bg-[#11131a] border border-white/5">
-            <span className="text-[10px] text-gray-400 block font-chivo">공용 등록 회원 수</span>
+            <span className="text-[10px] text-gray-400 block font-chivo">실시간 연동 회원</span>
             <span className="font-chivo font-black text-sm text-white">
               {members.length} <span className="text-xs text-gray-400">/ {maxCapacity}명</span>
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-[#11131a] border border-white/5">
+            <span className="text-[10px] text-gray-400 block font-chivo">실시간 연동 공지글</span>
+            <span className="font-chivo font-black text-sm text-[#f5c200]">
+              {posts.length}건
+            </span>
+          </div>
+          <div className="p-2.5 rounded-lg bg-[#11131a] border border-white/5">
             <span className="text-[10px] text-gray-400 block font-chivo">동기화 엔진</span>
-            <span className="font-chivo font-bold text-xs text-emerald-400">
-              Firebase Firestore 실시간 리스너
+            <span className="font-chivo font-bold text-xs text-emerald-400 truncate block">
+              Firestore 실시간 연동
             </span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Medal, Award, Calendar, Shield, Dna, Plus, MessageCircle, ChevronRight, Share2, UserCog } from 'lucide-react';
+import { Trophy, Medal, Award, Calendar, Shield, Dna, Plus, MessageCircle, ChevronRight, Share2, UserCog, Edit2, Trash2 } from 'lucide-react';
 import { SquashMember, HonorItem, MemberPhoto, CheerMessage } from '../types';
 
 interface TrophyRoomViewProps {
@@ -11,6 +11,8 @@ interface TrophyRoomViewProps {
   onOpenCheerModal: () => void;
   onOpenImageModal: (imageUrl: string, title: string) => void;
   onOpenEditProfile?: (member: SquashMember) => void;
+  onEditHonor?: (honor: HonorItem) => void;
+  onDeleteHonor?: (memberId: string, honorId: string) => void;
 }
 
 export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
@@ -22,6 +24,8 @@ export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
   onOpenCheerModal,
   onOpenImageModal,
   onOpenEditProfile,
+  onEditHonor,
+  onDeleteHonor,
 }) => {
   const getRankColor = (rankType: HonorItem['rankType']) => {
     switch (rankType) {
@@ -156,25 +160,7 @@ export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
         </div>
       </div>
 
-      {/* Member Switcher Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-        <span className="text-[11px] font-chivo font-bold text-gray-400 shrink-0 mr-1">
-          멤버 전환:
-        </span>
-        {allMembers.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => onSelectMember(m.id)}
-            className={`px-2.5 py-1 rounded-full text-xs font-chivo font-semibold whitespace-nowrap transition-all ${
-              m.id === member.id
-                ? 'bg-[#f5c200] text-[#0f1118] font-bold'
-                : 'bg-[#161822] text-gray-300 border border-white/[0.08] hover:border-white/20'
-            }`}
-          >
-            {m.name} {m.role === 'captain' && '★'}
-          </button>
-        ))}
-      </div>
+
 
       {/* Section: 🏆 시상 이력 룸 */}
       <div className="space-y-2.5">
@@ -241,14 +227,48 @@ export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
                   </p>
                 </div>
 
-                {/* Right Rank Callout */}
-                <div className="text-right shrink-0 flex items-center gap-1.5 self-center">
-                  <span className={`font-chivo font-black text-lg sm:text-xl tracking-tight ${getRankColor(honor.rankType)}`}>
-                    {honor.rank}
-                  </span>
-                  <span className="text-lg">
-                    {honor.rankType === 'gold' ? '🥇' : honor.rankType === 'silver' ? '🥈' : '🥉'}
-                  </span>
+                {/* Right Rank Callout & Actions */}
+                <div className="shrink-0 flex flex-col items-end gap-1.5 self-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`font-chivo font-black text-lg sm:text-xl tracking-tight ${getRankColor(honor.rankType)}`}>
+                      {honor.rank}
+                    </span>
+                    <span className="text-lg">
+                      {honor.rankType === 'gold' ? '🥇' : honor.rankType === 'silver' ? '🥈' : '🥉'}
+                    </span>
+                  </div>
+
+                  {/* Edit / Delete Buttons */}
+                  <div className="flex items-center gap-1 mt-1">
+                    {onEditHonor && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditHonor(honor);
+                        }}
+                        className="p-1 rounded-md text-gray-400 hover:text-[#f5c200] hover:bg-white/5 transition-colors cursor-pointer"
+                        title="시상 이력 수정"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    )}
+                    {onDeleteHonor && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`'${honor.title}' 시상 이력을 삭제하시겠습니까?`)) {
+                            onDeleteHonor(member.id, honor.id);
+                          }
+                        }}
+                        className="p-1 rounded-md text-gray-400 hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
+                        title="시상 이력 삭제"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
