@@ -86,14 +86,16 @@ export function subscribeToPosts(
   return onSnapshot(
     postsRef,
     (snapshot) => {
-      if (snapshot.empty) {
-        onUpdate([]);
-        return;
-      }
-
       const posts: FeedPost[] = [];
       snapshot.forEach((docSnap) => {
         posts.push(docSnap.data() as FeedPost);
+      });
+
+      // Sort posts newest first based on id or timestamp
+      posts.sort((a, b) => {
+        const idA = a.id ? parseInt(a.id.replace(/\D/g, ''), 10) || 0 : 0;
+        const idB = b.id ? parseInt(b.id.replace(/\D/g, ''), 10) || 0 : 0;
+        return idB - idA;
       });
 
       try {
@@ -104,8 +106,20 @@ export function subscribeToPosts(
 
       onUpdate(posts);
     },
-    (err) => {
-      console.error('Firestore subscribeToPosts error:', err);
+    async (err) => {
+      console.warn('Firestore subscribeToPosts warning, trying server backup:', err);
+      try {
+        const res = await fetch('/api/posts');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.posts) && data.posts.length > 0) {
+            onUpdate(data.posts);
+            return;
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
       if (onError) onError(err);
     }
   );
@@ -129,20 +143,59 @@ export async function deleteMemberFromFirestore(memberId: string): Promise<void>
 }
 
 /**
- * Add or Update post in Firestore
+ * Add or Update post in Firestore and server backup
  */
 export async function savePostToFirestore(post: FeedPost): Promise<void> {
   const postDoc = doc(db, POSTS_COLLECTION, post.id);
   const sanitized = JSON.parse(JSON.stringify(post));
+
+  // Double safeguard: ensure image dataUrl does not exceed Firestore's 1,048,576 bytes limit
+  if (sanitized.imageUrl && sanitized.imageUrl.startsWith('data:image')) {
+    const estimatedBytes = sanitized.imageUrl.length * 0.75;
+    if (estimatedBytes > 600 * 1024) {
+      try {
+        const { compressDataUrl } = await import('../utils/imageCompressor');
+        sanitized.imageUrl = await compressDataUrl(sanitized.imageUrl, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.75,
+          maxSizeBytes: 400 * 1024,
+        });
+      } catch (err) {
+        console.warn('Fallback compressing dataUrl:', err);
+      }
+    }
+  }
+  
+  // 1. Save to Firestore
   await setDoc(postDoc, sanitized, { merge: true });
+
+  // 2. Also sync to local server backup endpoint for multi-layer persistence
+  try {
+    fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sanitized),
+    }).catch(() => {});
+  } catch (e) {
+    // ignore
+  }
 }
 
 /**
- * Delete post from Firestore
+ * Delete post from Firestore and server backup
  */
 export async function deletePostFromFirestore(postId: string): Promise<void> {
   const postDoc = doc(db, POSTS_COLLECTION, postId);
   await deleteDoc(postDoc);
+
+  try {
+    fetch(`/api/posts/${postId}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+  } catch (e) {
+    // ignore
+  }
 }
 
 /**

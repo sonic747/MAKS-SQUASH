@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FolderOpen, MapPin, Clock, Trophy, Save, Trash2 } from 'lucide-react';
+import { X, Camera, FolderOpen, MapPin, Clock, Trophy, Save, Trash2, Loader2 } from 'lucide-react';
 import { FeedPost } from '../types';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface EditPostModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
 
   const [caption, setCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
   const [category, setCategory] = useState<'match' | 'awards' | 'all'>('match');
 
   // 게임/매치 전용
@@ -53,16 +55,29 @@ export const EditPostModal: React.FC<EditPostModalProps> = ({
 
   if (!isOpen || !post) return null;
 
-  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        setIsCompressing(true);
+        const compressedBase64 = await compressImageFile(file, {
+          maxWidth: 1280,
+          maxHeight: 1280,
+          quality: 0.8,
+          maxSizeBytes: 400 * 1024,
+        });
+        setImageUrl(compressedBase64);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setImageUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
+      }
     }
     e.target.value = '';
   };

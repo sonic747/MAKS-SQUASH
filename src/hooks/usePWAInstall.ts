@@ -10,23 +10,31 @@ export function usePWAInstall() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isKakaoOrInApp, setIsKakaoOrInApp] = useState(false);
 
   useEffect(() => {
     // 1. Detect standalone mode (already installed on desktop or mobile)
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+      localStorage.getItem('maks_pwa_installed') === 'true';
     setIsInstalled(isStandalone);
 
     // 2. Detect iOS devices
     const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isIOSDevice =
+      /iphone|ipad|ipod/.test(userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     setIsIOS(isIOSDevice);
 
     const isMobileDevice = /android|iphone|ipad|ipod|windows phone/i.test(userAgent);
     setIsMobile(isMobileDevice);
 
-    // 3. Listen to browser native beforeinstallprompt event (Chrome, Edge, Samsung Internet)
+    // 3. Detect In-App browser (KakaoTalk, Naver, Line, Instagram, Facebook)
+    const inApp = /kakaotalk|naver|line|instagram|fb_iab|fban|fbav/i.test(userAgent);
+    setIsKakaoOrInApp(inApp);
+
+    // 4. Listen to browser native beforeinstallprompt event (Chrome, Edge, Samsung Internet)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -35,6 +43,12 @@ export function usePWAInstall() {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      try {
+        localStorage.setItem('maks_pwa_installed', 'true');
+        localStorage.setItem('maks_pwa_prompt_dismissed', 'true');
+      } catch (err) {
+        // ignore
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -55,6 +69,12 @@ export function usePWAInstall() {
     if (choice.outcome === 'accepted') {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      try {
+        localStorage.setItem('maks_pwa_installed', 'true');
+        localStorage.setItem('maks_pwa_prompt_dismissed', 'true');
+      } catch (err) {
+        // ignore
+      }
       return true;
     }
     return false;
@@ -65,7 +85,8 @@ export function usePWAInstall() {
     isInstalled,
     isIOS,
     isMobile,
+    isKakaoOrInApp,
     triggerInstall,
-    canInstall: !!deferredPrompt || (isIOS && !isInstalled),
+    canInstall: !isInstalled && (!!deferredPrompt || isIOS || isMobile || isKakaoOrInApp),
   };
 }

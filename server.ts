@@ -127,7 +127,54 @@ app.post('/api/members', (req: Request, res: Response) => {
   res.json({ success: true, count: members.length });
 });
 
-// 4. Vite middleware in dev or static files in production
+// 4. Posts DB endpoints (read/write & delete)
+app.get('/api/posts', (req: Request, res: Response) => {
+  const clubDb = readJsonFile<ClubData>(DATA_FILE, {
+    updated_at: new Date().toISOString(),
+    members: [],
+    posts: [],
+  });
+  res.json({ posts: clubDb.posts || [], updated_at: clubDb.updated_at });
+});
+
+app.post('/api/posts', (req: Request, res: Response) => {
+  const post = req.body;
+  if (!post || !post.id) {
+    res.status(400).json({ error: 'post with id is required' });
+    return;
+  }
+  const clubDb = readJsonFile<ClubData>(DATA_FILE, {
+    updated_at: new Date().toISOString(),
+    members: [],
+    posts: [],
+  });
+
+  const existingIdx = clubDb.posts.findIndex((p) => p.id === post.id);
+  if (existingIdx >= 0) {
+    clubDb.posts[existingIdx] = post;
+  } else {
+    clubDb.posts.unshift(post);
+  }
+  clubDb.updated_at = new Date().toISOString();
+  writeJsonFile(DATA_FILE, clubDb);
+
+  res.json({ success: true, post, totalPosts: clubDb.posts.length });
+});
+
+app.delete('/api/posts/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const clubDb = readJsonFile<ClubData>(DATA_FILE, {
+    updated_at: new Date().toISOString(),
+    members: [],
+    posts: [],
+  });
+  clubDb.posts = clubDb.posts.filter((p) => p.id !== id);
+  clubDb.updated_at = new Date().toISOString();
+  writeJsonFile(DATA_FILE, clubDb);
+  res.json({ success: true });
+});
+
+// 5. Vite middleware in dev or static files in production
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

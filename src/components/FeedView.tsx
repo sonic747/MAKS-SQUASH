@@ -36,6 +36,17 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [swingingPostId, setSwingingPostId] = useState<string | null>(null);
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
   const [postToDelete, setPostToDelete] = useState<FeedPost | null>(null);
+  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(() => {
+    try {
+      return (
+        localStorage.getItem('maks_pwa_banner_dismissed') === 'true' ||
+        localStorage.getItem('maks_pwa_prompt_dismissed') === 'true' ||
+        localStorage.getItem('maks_pwa_installed') === 'true'
+      );
+    } catch (e) {
+      return false;
+    }
+  });
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,9 +84,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <span>공지 작성 / 사진 업로드</span>
       </button>
 
-      {/* MAKS Desktop / Mobile Shortcut App Banner */}
-      {!isPWAInstalled && onOpenInstallModal && (
-        <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#1c202d] via-[#161822] to-[#12141c] border border-[#f5c200]/35 flex items-center justify-between gap-3 shadow-lg animate-in fade-in">
+      {/* MAKS Desktop / Mobile Shortcut App Banner (hidden if dismissed or installed) */}
+      {!isPWAInstalled && onOpenInstallModal && !isBannerDismissed && (
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#1c202d] via-[#161822] to-[#12141c] border border-[#f5c200]/35 flex items-center justify-between gap-3 shadow-lg animate-in fade-in relative">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow ring-1 ring-[#f5c200]/40 p-0.5 bg-[#0f1118] shrink-0">
               <img
@@ -94,13 +105,30 @@ export const FeedView: React.FC<FeedViewProps> = ({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onOpenInstallModal}
-            className="px-3.5 py-2 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shrink-0 cursor-pointer shadow active:scale-95 transition-all"
-          >
-            아이콘 추가
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={onOpenInstallModal}
+              className="px-3.5 py-2 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shrink-0 cursor-pointer shadow active:scale-95 transition-all"
+            >
+              설치
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsBannerDismissed(true);
+                try {
+                  localStorage.setItem('maks_pwa_banner_dismissed', 'true');
+                } catch (e) {
+                  // ignore
+                }
+              }}
+              title="닫기"
+              className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

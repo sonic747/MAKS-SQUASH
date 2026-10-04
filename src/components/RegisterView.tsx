@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UserPlus, Camera, CheckCircle2, ArrowRight } from 'lucide-react';
 import { SquashMember, BallRating } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface RegisterViewProps {
   members: SquashMember[];
@@ -148,16 +149,26 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
     setBallRating('s2');
   };
 
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setAvatarUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, {
+          maxWidth: 600,
+          maxHeight: 600,
+          quality: 0.8,
+          maxSizeBytes: 200 * 1024,
+        });
+        setAvatarUrl(compressed);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setAvatarUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

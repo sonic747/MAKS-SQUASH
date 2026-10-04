@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, FolderOpen, MapPin, Clock, Trophy, AlertCircle, Trash2 } from 'lucide-react';
+import { X, Camera, FolderOpen, MapPin, Clock, Trophy, AlertCircle, Trash2, Loader2 } from 'lucide-react';
 import { SquashMember, FeedPost } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [selectedMemberId, setSelectedMemberId] = useState(currentUser?.id || members[0]?.id || '');
   const [category, setCategory] = useState<'all' | 'awards' | 'match'>('all');
   const [imageUrl, setImageUrl] = useState<string>('');
+  const [isCompressing, setIsCompressing] = useState(false);
   const [caption, setCaption] = useState('');
 
   // 게임/매치 전용 필드 (경기스코어, 경기시간, 장소)
@@ -43,16 +45,31 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const currentMember = members.find((m) => m.id === selectedMemberId) || members[0];
 
-  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        setIsCompressing(true);
+        // Automatically compress image client-side to be under 400KB so Firestore 1MB limit is never exceeded
+        const compressedBase64 = await compressImageFile(file, {
+          maxWidth: 1280,
+          maxHeight: 1280,
+          quality: 0.8,
+          maxSizeBytes: 400 * 1024,
+        });
+        setImageUrl(compressedBase64);
+      } catch (err) {
+        console.warn('Image compression fallback:', err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setImageUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
+      }
     }
     // reset input value so re-selecting same file triggers onChange
     e.target.value = '';
@@ -244,7 +261,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
 
             {/* Image Preview or Placeholder */}
-            {imageUrl ? (
+            {isCompressing ? (
+              <div className="aspect-video rounded-xl border border-dashed border-[#f5c200]/50 bg-[#11131a] flex flex-col items-center justify-center text-[#f5c200] gap-2 p-4 text-center animate-pulse">
+                <Loader2 size={26} className="animate-spin text-[#f5c200]" />
+                <span className="text-xs font-chivo font-bold">고화질 사진 최적화 및 용량 압축 중...</span>
+                <span className="text-[10px] text-gray-400">1MB 클라우드 제한 자동 최적화</span>
+              </div>
+            ) : imageUrl ? (
               <div className="relative aspect-video rounded-xl overflow-hidden border border-white/15 bg-black/50 group">
                 <img
                   src={imageUrl}
@@ -259,8 +282,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 >
                   <Trash2 size={14} />
                 </button>
-                <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 backdrop-blur-sm text-[10px] text-gray-300 font-chivo">
-                  ✓ 사진 등록됨
+                <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 backdrop-blur-sm text-[10px] text-emerald-400 font-chivo font-bold flex items-center gap-1">
+                  <span>✓ 사진 최적화 완료 (클라우드 초고속 동기화)</span>
                 </div>
               </div>
             ) : (

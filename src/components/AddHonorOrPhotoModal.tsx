@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Trophy, Camera, Award, Sparkles } from 'lucide-react';
 import { SquashMember, HonorItem, MemberPhoto } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface AddHonorOrPhotoModalProps {
   isOpen: boolean;
@@ -123,12 +124,22 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
               <input
                 type="file"
                 ref={fileInputRef}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    const r = new FileReader();
-                    r.onload = () => typeof r.result === 'string' && setPhotoUrl(r.result);
-                    r.readAsDataURL(file);
+                    try {
+                      const compressed = await compressImageFile(file, {
+                        maxWidth: 1280,
+                        maxHeight: 1280,
+                        quality: 0.8,
+                        maxSizeBytes: 400 * 1024,
+                      });
+                      setPhotoUrl(compressed);
+                    } catch (err) {
+                      const r = new FileReader();
+                      r.onload = () => typeof r.result === 'string' && setPhotoUrl(r.result);
+                      r.readAsDataURL(file);
+                    }
                   }
                 }}
                 accept="image/*"

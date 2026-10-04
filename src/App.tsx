@@ -157,6 +157,18 @@ export default function App() {
     }
   }, [currentTab, posts, readPostIds]);
 
+  // Automatically prompt for PWA installation upon visiting, unless user already installed or dismissed
+  useEffect(() => {
+    const isDismissed = localStorage.getItem('maks_pwa_prompt_dismissed') === 'true';
+    const isInstalled = localStorage.getItem('maks_pwa_installed') === 'true';
+    if (!isDismissed && !isInstalled && !isPWAInstalled) {
+      const timer = setTimeout(() => {
+        setIsInstallModalOpen(true);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isPWAInstalled]);
+
   // Register PWA Service Worker for offline asset caching & icon badging
   useEffect(() => {
     registerPWAServiceWorker();
@@ -207,7 +219,31 @@ export default function App() {
     // Subscribe to Firestore posts in real-time
     const unsubscribePosts = subscribeToPosts(
       (updatedPosts) => {
-        setPosts(updatedPosts);
+        setPosts((currentPosts) => {
+          // Merge to ensure freshly added posts are preserved
+          const postMap = new Map<string, FeedPost>();
+          // Put updated posts first
+          updatedPosts.forEach((p) => postMap.set(p.id, p));
+          // Put any current local post not yet indexed in snapshot
+          currentPosts.forEach((p) => {
+            if (!postMap.has(p.id)) {
+              postMap.set(p.id, p);
+            }
+          });
+          const merged = Array.from(postMap.values());
+          // Sort newest first
+          merged.sort((a, b) => {
+            const idA = a.id ? parseInt(a.id.replace(/\D/g, ''), 10) || 0 : 0;
+            const idB = b.id ? parseInt(b.id.replace(/\D/g, ''), 10) || 0 : 0;
+            return idB - idA;
+          });
+          try {
+            localStorage.setItem(STORAGE_KEY_POSTS_CACHE, JSON.stringify(merged));
+          } catch (e) {
+            // ignore
+          }
+          return merged;
+        });
         setIsSyncing(false);
       },
       (err) => {
@@ -337,12 +373,24 @@ export default function App() {
       comments: [],
     };
 
+    // 1. Optimistically add to state and local cache immediately
+    setPosts((prev) => {
+      const exists = prev.some((p) => p.id === newPost.id);
+      if (exists) return prev;
+      const updated = [newPost, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEY_POSTS_CACHE, JSON.stringify(updated));
+      } catch (e) {
+        // ignore
+      }
+      return updated;
+    });
+
     try {
       setIsSyncing(true);
       await savePostToFirestore(newPost);
     } catch (err) {
       console.error('Failed to save post to cloud', err);
-      setPosts((prev) => [newPost, ...prev]);
     } finally {
       setIsSyncing(false);
     }

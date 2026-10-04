@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UserCheck, ShieldCheck, ArrowRight, UserPlus, Lock, LogIn, Camera } from 'lucide-react';
 import { SquashMember, BallRating } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 interface AuthGateModalProps {
   isOpen: boolean;
@@ -46,16 +47,26 @@ export const AuthGateModal: React.FC<AuthGateModalProps> = ({
     'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80',
   ];
 
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setRegAvatarUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, {
+          maxWidth: 600,
+          maxHeight: 600,
+          quality: 0.8,
+          maxSizeBytes: 200 * 1024,
+        });
+        setRegAvatarUrl(compressed);
+      } catch (err) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            setRegAvatarUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
