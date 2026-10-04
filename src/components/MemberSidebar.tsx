@@ -33,7 +33,7 @@ export const MemberSidebar: React.FC<MemberSidebarProps> = ({
       </div>
 
       {/* Member Avatar List */}
-      <div className="flex-1 w-full flex flex-col items-center gap-3 overflow-y-auto overflow-x-hidden no-scrollbar px-1 py-1">
+      <div className="flex-1 w-full flex flex-col items-center gap-3 overflow-y-auto overflow-x-hidden no-scrollbar px-1 pt-1 pb-20">
         {isLoading && members.length === 0 ? (
           [1, 2, 3, 4, 5].map((idx) => (
             <div key={idx} className="flex flex-col items-center w-full animate-pulse gap-1 py-1">
@@ -110,18 +110,6 @@ export const MemberSidebar: React.FC<MemberSidebarProps> = ({
             );
           })
         )}
-      </div>
-
-      {/* Add Member Button at Bottom */}
-      <div className="w-full px-2 pt-2 border-t border-white/[0.08]">
-        <button
-          onClick={onAddMemberClick}
-          className="w-full py-2 px-1 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black flex flex-col items-center justify-center gap-0.5 shadow-md active:scale-95 transition-all cursor-pointer"
-          title="신규 회원 등록"
-        >
-          <UserPlus size={16} strokeWidth={2.5} />
-          <span className="text-[10px] leading-tight font-bold">추가</span>
-        </button>
       </div>
     </aside>
   );

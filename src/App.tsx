@@ -603,6 +603,7 @@ export default function App() {
           isSyncing={isSyncing}
           cloudConnected={cloudConnected}
           unreadCount={unreadCount}
+          onNavigateToRegister={() => setCurrentTab('register')}
           onOpenInstallModal={() => setIsInstallModalOpen(true)}
         />
 

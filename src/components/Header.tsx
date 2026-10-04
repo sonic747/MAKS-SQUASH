@@ -1,7 +1,7 @@
 import React from 'react';
 import { MaksLogo } from './MaksLogo';
 import { TabType, SquashMember } from '../types';
-import { LogOut, RefreshCw, Download, Sparkles } from 'lucide-react';
+import { LogOut, RefreshCw, UserPlus, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   currentTab: TabType;
@@ -11,6 +11,7 @@ interface HeaderProps {
   currentUser?: SquashMember | null;
   selectedMember?: SquashMember;
   unreadCount?: number;
+  onNavigateToRegister?: () => void;
   onOpenInstallModal?: () => void;
   onLogout?: () => void;
   onOpenGate?: () => void;
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   cloudConnected = true,
   currentUser,
   unreadCount = 0,
+  onNavigateToRegister,
   onOpenInstallModal,
   onLogout,
   onSyncNow,
@@ -51,17 +53,19 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0f1118]/95 backdrop-blur-md border-b border-white/[0.08] px-3.5 py-2">
-      <div className="flex items-center justify-between gap-3">
+    <header className="sticky top-0 z-30 bg-[#0f1118]/95 backdrop-blur-md border-b border-white/[0.08] px-2.5 sm:px-3.5 py-2">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-3">
         {/* Left: Logo and Active Tab Name with Badging indication */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <MaksLogo size="sm" />
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-gray-400 text-xs hidden sm:inline">|</span>
-            <span className="text-white text-xs font-chivo font-black tracking-wide truncate flex items-center gap-1.5">
-              <span>{getTabTitle()}</span>
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink">
+          <div className="shrink-0">
+            <MaksLogo size="sm" />
+          </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-gray-500 text-xs hidden xs:inline">|</span>
+            <span className="text-white text-[11px] sm:text-xs font-chivo font-black tracking-wide truncate flex items-center gap-1">
+              <span className="truncate">{getTabTitle()}</span>
               {unreadCount > 0 && currentTab === 'feed' && (
-                <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                <span className="px-1 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-black shrink-0 animate-pulse">
                   N {unreadCount}
                 </span>
               )}
@@ -69,18 +73,18 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Action Icons: Install Shortcut Button, Cloud Sync, Current User & Logout */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* PC / Mobile Desktop Shortcut Creator Button */}
-          {onOpenInstallModal && (
+        {/* Right Action Icons: 회원가입, Cloud Sync, Current User & Logout */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* 회원가입 Button */}
+          {onNavigateToRegister && (
             <button
-              onClick={onOpenInstallModal}
-              title="PC 및 스마트폰 바탕화면에 MAKS 단축아이콘 생성"
+              onClick={onNavigateToRegister}
+              title="신규 회원가입 창으로 이동"
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f5c200]/15 hover:bg-[#f5c200]/25 border border-[#f5c200]/40 text-[#f5c200] text-xs font-chivo font-black transition-all cursor-pointer shadow-sm active:scale-95"
             >
-              <Download size={13} strokeWidth={2.5} />
-              <span className="text-[11px]">
-                <strong className="text-white">MAKS</strong> 아이콘 설치
+              <UserPlus size={13} strokeWidth={2.5} />
+              <span className="text-[11px] whitespace-nowrap">
+                회원가입
               </span>
             </button>
           )}
