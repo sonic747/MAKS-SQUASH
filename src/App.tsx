@@ -219,30 +219,14 @@ export default function App() {
     // Subscribe to Firestore posts in real-time
     const unsubscribePosts = subscribeToPosts(
       (updatedPosts) => {
-        setPosts((currentPosts) => {
-          // Merge to ensure freshly added posts are preserved
-          const postMap = new Map<string, FeedPost>();
-          // Put updated posts first
-          updatedPosts.forEach((p) => postMap.set(p.id, p));
-          // Put any current local post not yet indexed in snapshot
-          currentPosts.forEach((p) => {
-            if (!postMap.has(p.id)) {
-              postMap.set(p.id, p);
-            }
-          });
-          const merged = Array.from(postMap.values());
-          // Sort newest first
-          merged.sort((a, b) => {
-            const idA = a.id ? parseInt(a.id.replace(/\D/g, ''), 10) || 0 : 0;
-            const idB = b.id ? parseInt(b.id.replace(/\D/g, ''), 10) || 0 : 0;
-            return idB - idA;
-          });
+        // updatedPosts is the authoritative real-time state from Firestore
+        setPosts(() => {
           try {
-            localStorage.setItem(STORAGE_KEY_POSTS_CACHE, JSON.stringify(merged));
+            localStorage.setItem(STORAGE_KEY_POSTS_CACHE, JSON.stringify(updatedPosts));
           } catch (e) {
             // ignore
           }
-          return merged;
+          return updatedPosts;
         });
         setIsSyncing(false);
       },
@@ -410,8 +394,16 @@ export default function App() {
   };
 
   const handleDeletePost = async (postId: string) => {
-    // 1. Optimistic instant removal from UI
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    // 1. Optimistic instant removal from UI and cache
+    setPosts((prev) => {
+      const filtered = prev.filter((p) => p.id !== postId);
+      try {
+        localStorage.setItem(STORAGE_KEY_POSTS_CACHE, JSON.stringify(filtered));
+      } catch (e) {
+        // ignore
+      }
+      return filtered;
+    });
     try {
       setIsSyncing(true);
       await deletePostFromFirestore(postId);

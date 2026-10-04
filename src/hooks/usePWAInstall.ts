@@ -13,11 +13,10 @@ export function usePWAInstall() {
   const [isKakaoOrInApp, setIsKakaoOrInApp] = useState(false);
 
   useEffect(() => {
-    // 1. Detect standalone mode (already installed on desktop or mobile)
+    // 1. Detect standalone mode (actually running as standalone installed window)
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-      localStorage.getItem('maks_pwa_installed') === 'true';
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
     setIsInstalled(isStandalone);
 
     // 2. Detect iOS devices
