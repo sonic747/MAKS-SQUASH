@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Trophy, Camera, Award, Sparkles } from 'lucide-react';
+import { X, Trophy, Camera, Image, Sparkles } from 'lucide-react';
 import { SquashMember, HonorItem, MemberPhoto } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
 
@@ -8,7 +8,7 @@ interface AddHonorOrPhotoModalProps {
   onClose: () => void;
   member: SquashMember;
   onAddHonor: (memberId: string, honor: Omit<HonorItem, 'id'>) => void;
-  onAddPhoto: (memberId: string, photo: Omit<MemberPhoto, 'id'>) => void;
+  onAddPhoto?: (memberId: string, photo: Omit<MemberPhoto, 'id'>) => void;
 }
 
 export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
@@ -16,17 +16,9 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
   onClose,
   member,
   onAddHonor,
-  onAddPhoto,
 }) => {
-  const [tab, setTab] = useState<'photo' | 'honor'>('photo');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Photo form state
-  const [photoTag, setPhotoTag] = useState('코트 훈련 샷');
-  const [photoTitle, setPhotoTitle] = useState('스쿼시 파워 드라이브 드릴');
-  const [photoUrl, setPhotoUrl] = useState(
-    'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80'
-  );
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Honor form state
   const [honorTitle, setHonorTitle] = useState('2024 경기도협회장배 스쿼시 대회');
@@ -34,18 +26,33 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
   const [rank, setRank] = useState('1위');
   const [rankBadge, setRankBadge] = useState('CHAMPION');
   const [rankType, setRankType] = useState<'gold' | 'silver' | 'bronze'>('gold');
-  const [matchScore, setMatchScore] = useState('전승 우승 4-0');
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [isCompressing, setIsCompressing] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
-  const handlePhotoSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onAddPhoto(member.id, {
-      tag: photoTag,
-      title: photoTitle,
-      imageUrl: photoUrl,
-    });
-    onClose();
+  const handleProcessFile = async (file: File) => {
+    try {
+      setIsCompressing(true);
+      const compressed = await compressImageFile(file, {
+        maxWidth: 1200,
+        maxHeight: 1800,
+        quality: 0.8,
+        maxSizeBytes: 400 * 1024,
+      });
+      setImageUrl(compressed);
+    } catch (err) {
+      console.warn('Image compression fallback:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleHonorSubmit = (e: React.FormEvent) => {
@@ -57,8 +64,8 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
       rankBadge,
       rankType,
       date: new Date().toISOString().split('T')[0],
-      matchScore,
       division: '일반부',
+      imageUrl: imageUrl || undefined,
     });
     onClose();
   };
@@ -66,224 +73,185 @@ export const AddHonorOrPhotoModal: React.FC<AddHonorOrPhotoModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
       <div className="bg-[#161822] border border-white/[0.12] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in duration-200">
-        {/* Header */}
+        {/* Header: 시상 등록 */}
         <div className="px-4 py-3 bg-[#11131a] border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-[#f5c200]">🏆</span>
+            <Trophy size={18} className="text-[#f5c200]" />
             <h3 className="font-chivo font-black text-sm text-white">
-              {member.name} 님의 히스토리 추가
+              {member.name} 님의 시상 등록
             </h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-md">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-white p-1 rounded-md cursor-pointer transition-colors"
+          >
             <X size={18} />
           </button>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="grid grid-cols-2 gap-1 p-2 bg-[#11131a] border-b border-white/[0.06]">
-          <button
-            type="button"
-            onClick={() => setTab('photo')}
-            className={`py-2 text-xs font-chivo font-bold rounded-lg transition-all ${
-              tab === 'photo'
-                ? 'bg-[#1e222d] text-[#f5c200] border border-white/10'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            📷 운동/히스토리 사진
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('honor')}
-            className={`py-2 text-xs font-chivo font-bold rounded-lg transition-all ${
-              tab === 'honor'
-                ? 'bg-[#1e222d] text-[#f5c200] border border-white/10'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            🏆 새 시상 이력 등록
-          </button>
-        </div>
+        {/* Form */}
+        <form onSubmit={handleHonorSubmit} className="p-4 space-y-3.5 max-h-[85vh] overflow-y-auto">
+          {/* 대회 명칭 */}
+          <div>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+              대회 명칭
+            </label>
+            <input
+              type="text"
+              value={honorTitle}
+              onChange={(e) => setHonorTitle(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
+              placeholder="예: 2024 제15회 전국 클럽 스쿼시 선수권 대회"
+              required
+            />
+          </div>
 
-        {/* Content */}
-        {tab === 'photo' ? (
-          <form onSubmit={handlePhotoSubmit} className="p-4 space-y-3.5">
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                사진 미리보기
-              </label>
-              <div className="aspect-video rounded-xl overflow-hidden bg-[#0c0e15] border border-white/10 mb-2">
-                <img
-                  src={photoUrl}
-                  alt="미리보기"
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+          {/* 주관 및 부문 설명 */}
+          <div>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+              주관 및 부문 설명
+            </label>
+            <input
+              type="text"
+              value={organizer}
+              onChange={(e) => setOrganizer(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
+              placeholder="예: 대한스쿼시연맹 공인 • 개인전 남자부"
+              required
+            />
+          </div>
 
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    try {
-                      const compressed = await compressImageFile(file, {
-                        maxWidth: 1280,
-                        maxHeight: 1280,
-                        quality: 0.8,
-                        maxSizeBytes: 400 * 1024,
-                      });
-                      setPhotoUrl(compressed);
-                    } catch (err) {
-                      const r = new FileReader();
-                      r.onload = () => typeof r.result === 'string' && setPhotoUrl(r.result);
-                      r.readAsDataURL(file);
-                    }
-                  }
-                }}
-                accept="image/*"
-                className="hidden"
-              />
+          {/* 순위 결과 */}
+          <div>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
+              순위 결과
+            </label>
+            <select
+              value={rank}
+              onChange={(e) => {
+                setRank(e.target.value);
+                if (e.target.value === '1위') {
+                  setRankBadge('CHAMPION');
+                  setRankType('gold');
+                } else if (e.target.value === '2위') {
+                  setRankBadge('RUNNER-UP');
+                  setRankType('silver');
+                } else {
+                  setRankBadge('3RD PLACE');
+                  setRankType('bronze');
+                }
+              }}
+              className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200] cursor-pointer"
+            >
+              <option value="1위">1위 🥇 (우승 - CHAMPION)</option>
+              <option value="2위">2위 🥈 (준우승 - RUNNER-UP)</option>
+              <option value="3위">3위 🥉 (동메달 - 3RD PLACE)</option>
+            </select>
+          </div>
+
+          {/* 사진 첨부 섹션: 사진선택 / 사진촬영 및 세로 4:2 (2:1) 세워서 표시 */}
+          <div>
+            <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1.5">
+              시상 및 상장/메달 사진 (선택)
+            </label>
+
+            {/* Hidden file inputs: Gallery & Camera capture */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleProcessFile(file);
+              }}
+            />
+            <input
+              type="file"
+              ref={cameraInputRef}
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleProcessFile(file);
+              }}
+            />
+
+            {/* Two Action Buttons: 사진 선택 & 사진 촬영 */}
+            <div className="grid grid-cols-2 gap-2 mb-2.5">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-2 rounded bg-[#1e222d] border border-white/10 text-xs font-chivo font-bold text-white flex items-center justify-center gap-1.5"
+                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#272b38] border border-white/15 text-xs font-chivo font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
-                <Camera size={14} />
-                <span>기기에서 사진 업로드</span>
+                <Image size={15} className="text-[#f5c200]" />
+                <span>사진선택</span>
               </button>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                태그 구분 (예: 코트 훈련 샷, 기어 셋업, 대회 시상대)
-              </label>
-              <input
-                type="text"
-                value={photoTag}
-                onChange={(e) => setPhotoTag(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                사진 설명
-              </label>
-              <input
-                type="text"
-                value={photoTitle}
-                onChange={(e) => setPhotoTitle(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-                required
-              />
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
               <button
                 type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 px-3 rounded-lg bg-[#11131a] border border-white/10 text-xs font-chivo font-bold text-gray-300"
+                onClick={() => cameraInputRef.current?.click()}
+                className="py-2.5 px-3 rounded-xl bg-[#1e222d] hover:bg-[#272b38] border border-white/15 text-xs font-chivo font-bold text-white flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2.5 px-3 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shadow-md active:scale-95"
-              >
-                사진 히스토리에 추가
+                <Camera size={15} className="text-emerald-400" />
+                <span>사진촬영</span>
               </button>
             </div>
-          </form>
-        ) : (
-          <form onSubmit={handleHonorSubmit} className="p-4 space-y-3.5">
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                대회 명칭
-              </label>
-              <input
-                type="text"
-                value={honorTitle}
-                onChange={(e) => setHonorTitle(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-                required
-              />
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                주관 및 부문 설명
-              </label>
-              <input
-                type="text"
-                value={organizer}
-                onChange={(e) => setOrganizer(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                  순위 결과
-                </label>
-                <select
-                  value={rank}
-                  onChange={(e) => {
-                    setRank(e.target.value);
-                    if (e.target.value === '1위') {
-                      setRankBadge('CHAMPION');
-                      setRankType('gold');
-                    } else if (e.target.value === '2위') {
-                      setRankBadge('RUNNER-UP');
-                      setRankType('silver');
-                    } else {
-                      setRankBadge('3RD PLACE');
-                      setRankType('bronze');
-                    }
-                  }}
-                  className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
-                >
-                  <option value="1위">1위 🥇 (우승)</option>
-                  <option value="2위">2위 🥈 (준우승)</option>
-                  <option value="3위">3위 🥉 (동메달)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-chivo font-bold text-gray-300 mb-1">
-                  경기 결과 메모
-                </label>
-                <input
-                  type="text"
-                  value={matchScore}
-                  onChange={(e) => setMatchScore(e.target.value)}
-                  placeholder="예: 전승 우승 5-0"
-                  className="w-full px-3 py-2 rounded-lg bg-[#11131a] border border-white/10 text-xs text-white focus:outline-none focus:border-[#f5c200]"
+            {/* Photo Preview: 세로 4 대 가로 2 (1:2 ratio) 비율로 세워서 표시 */}
+            {imageUrl ? (
+              <div className="relative rounded-xl overflow-hidden bg-[#0c0e15] border border-[#f5c200]/40 mx-auto max-w-[200px] shadow-lg" style={{ aspectRatio: '1 / 2' }}>
+                <img
+                  src={imageUrl}
+                  alt="시상 사진 미리보기"
+                  className="w-full h-full object-cover"
                 />
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/75 text-white hover:text-red-400 cursor-pointer"
+                  title="사진 삭제"
+                >
+                  <X size={14} />
+                </button>
+                <div className="absolute bottom-0 inset-x-0 bg-black/70 text-center py-1 text-[10px] text-[#f5c200] font-bold">
+                  세로형 (4:2) 사진 등록됨
+                </div>
               </div>
-            </div>
+            ) : isCompressing ? (
+              <div className="rounded-xl border border-dashed border-white/20 p-6 text-center text-xs text-gray-400 font-chivo">
+                <Sparkles size={16} className="mx-auto text-[#f5c200] animate-spin mb-1" />
+                <span>사진 압축 처리 중...</span>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-xl border border-dashed border-white/15 p-4 text-center text-xs text-gray-400 font-chivo cursor-pointer hover:border-white/30 transition-colors"
+              >
+                <Camera size={20} className="mx-auto text-gray-500 mb-1" />
+                <span className="text-[11px]">사진을 선택하거나 촬영하시면 세로(4:2)로 세워서 미리보기가 표시됩니다.</span>
+              </div>
+            )}
+          </div>
 
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 px-3 rounded-lg bg-[#11131a] border border-white/10 text-xs font-chivo font-bold text-gray-300"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2.5 px-3 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shadow-md active:scale-95"
-              >
-                명예의 전당 등록
-              </button>
-            </div>
-          </form>
-        )}
+          {/* Action Buttons */}
+          <div className="pt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 px-3 rounded-xl bg-[#11131a] hover:bg-[#1a1c24] border border-white/10 text-xs font-chivo font-bold text-gray-300 cursor-pointer transition-colors"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              className="flex-1 py-3 px-3 rounded-xl bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              시상 등록 완료
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

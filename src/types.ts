@@ -40,8 +40,9 @@ export interface HonorItem {
   rankBadge: string;
   rankType: 'gold' | 'silver' | 'bronze';
   date: string;
-  matchScore: string;
-  division: string;
+  matchScore?: string;
+  division?: string;
+  imageUrl?: string;
 }
 
 export interface MemberPhoto {

@@ -197,8 +197,24 @@ export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
             {member.honors.map((honor) => (
               <div
                 key={honor.id}
-                className="p-3 sm:p-3.5 rounded-xl bg-[#161822] border border-white/[0.08] flex items-center justify-between gap-3 hover:border-white/20 transition-all"
+                className="p-3 sm:p-3.5 rounded-xl bg-[#161822] border border-white/[0.08] flex items-start justify-between gap-3 hover:border-white/20 transition-all"
               >
+                {/* Optional Vertical 4:2 Photo */}
+                {honor.imageUrl && (
+                  <div
+                    onClick={() => onOpenImageModal(honor.imageUrl!, honor.title)}
+                    className="w-16 sm:w-20 rounded-lg overflow-hidden bg-[#0c0e15] border border-[#f5c200]/30 shrink-0 shadow cursor-pointer group"
+                    style={{ aspectRatio: '1 / 2' }}
+                    title="클릭하여 확대 보기"
+                  >
+                    <img
+                      src={honor.imageUrl}
+                      alt={honor.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                  </div>
+                )}
+
                 <div className="flex-1 min-w-0">
                   {/* Badge & Date */}
                   <div className="flex items-center gap-2 mb-1.5">
@@ -223,70 +239,15 @@ export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
                   <p className="text-xs text-gray-400 mt-0.5">
                     {honor.organizer}
                   </p>
-
-                  {/* Match Note */}
-                  <div className="text-[11px] text-gray-300 font-chivo font-semibold mt-1">
-                    {honor.matchScore}
-                  </div>
                 </div>
 
                 {/* Right Rank Callout */}
-                <div className="text-right shrink-0 flex items-center gap-1.5">
+                <div className="text-right shrink-0 flex items-center gap-1.5 self-center">
                   <span className={`font-chivo font-black text-lg sm:text-xl tracking-tight ${getRankColor(honor.rankType)}`}>
                     {honor.rank}
                   </span>
                   <span className="text-lg">
                     {honor.rankType === 'gold' ? '🥇' : honor.rankType === 'silver' ? '🥈' : '🥉'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Section: 📷 멤버의 스쿼시 히스토리 */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 font-chivo font-extrabold text-base text-white">
-            <span>📷</span>
-            <span>{member.name} 님의 스쿼시 히스토리</span>
-          </div>
-          <span className="text-[11px] font-chivo font-bold text-gray-400">
-            총 {member.photos.length}장
-          </span>
-        </div>
-
-        {member.photos.length === 0 ? (
-          <div className="p-6 rounded-xl bg-[#161822] border border-white/[0.08] text-center text-gray-400 text-xs">
-            등록된 운동 히스토리 사진이 없습니다.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5">
-            {member.photos.map((photo) => (
-              <div
-                key={photo.id}
-                onClick={() => onOpenImageModal(photo.imageUrl, photo.title)}
-                className="relative aspect-square rounded-xl overflow-hidden bg-[#0c0e15] border border-white/[0.08] group cursor-pointer"
-              >
-                <img
-                  src={photo.imageUrl}
-                  alt={photo.title}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=600&q=80';
-                  }}
-                />
-
-                {/* Dark Gradient Overlay & Labels */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent flex flex-col justify-end p-2.5">
-                  <span className="text-[10px] font-chivo font-black text-[#f5c200] tracking-wider uppercase">
-                    {photo.tag}
-                  </span>
-                  <span className="text-xs font-bold text-white leading-tight truncate">
-                    {photo.title}
                   </span>
                 </div>
               </div>
@@ -341,8 +302,8 @@ export const TrophyRoomView: React.FC<TrophyRoomViewProps> = ({
           onClick={onOpenAddPhotoModal}
           className="w-full py-3.5 px-4 rounded-lg bg-[#f5c200] hover:bg-[#ffe299] text-[#0f1118] font-chivo font-black text-sm flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(245,194,0,0.25)] active:scale-[0.98] transition-all cursor-pointer"
         >
-          <span>📷</span>
-          <span>새 시상 / 운동 사진 추가하기</span>
+          <span>🏆</span>
+          <span>시상 등록</span>
         </button>
 
         <button
